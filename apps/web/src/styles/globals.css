@@ -83,3 +83,23 @@ body {
 .mandatory-capture-pulse {
   animation: captureGlow 1.2s infinite ease-in-out;
 }
+
+/* Hide Netlify Drawer, Feedback badge, and any floating watermarks */
+#netlify-drawer,
+[data-netlify-drawer],
+div[data-netlify-deploy-id],
+iframe[src*="netlify"],
+iframe[title*="Netlify"],
+.netlify-badge,
+div[class*="netlify-drawer"],
+div[class*="feedback-badge"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  clip: rect(0, 0, 0, 0) !important;
+  z-index: -9999 !important;
+}
