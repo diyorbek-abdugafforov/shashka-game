@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
+import { useSocketContext } from '../providers/SocketProvider';
+
 interface OnlinePlayer {
   id: string;
   name: string;
@@ -45,6 +47,7 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { user, wallet } = useAuth();
   const { t, language } = useTranslation();
+  const { onlineUsers, sendChallenge } = useSocketContext();
 
   const [activeTab, setActiveTab] = useState<'all' | 'friends'>('all');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -69,34 +72,54 @@ export const HomePage: React.FC = () => {
     staleTime: 60000,
   });
 
-  // Query real users from Neon database
-  const { data: leaderboardData, isLoading: isPlayersLoading } = useQuery({
-    queryKey: ['home-leaderboard-players'],
-    queryFn: () => leaderboardApi.getLeaderboard(GameMode.CLASSIC, 20),
-    staleTime: 15000,
+  // Query online users from API as well for initial instant load
+  const { data: apiOnlineUsers, isLoading: isPlayersLoading } = useQuery({
+    queryKey: ['home-online-players'],
+    queryFn: () => usersApi.getOnlineUsers(),
+    refetchInterval: 5000,
+  });
+
+  // Query top leaderboard player for marquee bar
+  const { data: leaderboardData } = useQuery({
+    queryKey: ['home-leaderboard-top'],
+    queryFn: () => leaderboardApi.getLeaderboard(GameMode.CLASSIC, 5),
+    staleTime: 60000,
   });
 
   const currentRating = stats?.currentRating ?? (user ? (user as any).rating || 1200 : 1200);
   const userDiamonds = wallet?.balance ?? 100;
 
-  // Real database players ONLY (bez baza chiqayotgan soxta odamlar yo'q)
-  const onlinePlayers: OnlinePlayer[] = (leaderboardData?.topPlayers || [])
-    .filter((entry: LeaderboardEntry) => entry.userId !== user?.id)
-    .map((entry: LeaderboardEntry) => ({
-      id: entry.userId,
-      name: entry.displayName || 'O\'yinchi',
-      elo: entry.rating || 1200,
-      diamonds: 100,
-      stars: Math.max(1, Math.floor((entry.rating || 1200) / 300)),
-      avatarUrl: entry.avatarUrl,
-      isPremium: (entry.rating || 1200) >= 1500,
-    }));
+  // Real-time active users who currently have the web app open right now!
+  const onlinePlayers: OnlinePlayer[] = React.useMemo(() => {
+    const map = new Map<string, any>();
+    if (Array.isArray(apiOnlineUsers)) {
+      apiOnlineUsers.forEach((u: any) => {
+        if (u && u.id) map.set(u.id, u);
+      });
+    }
+    if (Array.isArray(onlineUsers)) {
+      onlineUsers.forEach((u) => {
+        if (u && u.id) map.set(u.id, u);
+      });
+    }
+    return Array.from(map.values())
+      .filter((entry) => entry.id !== user?.id)
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.displayName || 'O\'yinchi',
+        elo: entry.rating || 1200,
+        diamonds: 100,
+        stars: Math.max(1, Math.floor((entry.rating || 1200) / 300)),
+        avatarUrl: entry.avatarUrl,
+        isPremium: (entry.rating || 1200) >= 1500,
+      }));
+  }, [onlineUsers, apiOnlineUsers, user?.id]);
 
   const topMarqueeUser = leaderboardData?.topPlayers?.[0];
 
   const handleChallenge = (player: OnlinePlayer) => {
     triggerHaptic('medium');
-    setIsInviteOpen(true);
+    sendChallenge(player.id, player.name);
   };
 
   const handleSendMessage = () => {
@@ -313,13 +336,21 @@ export const HomePage: React.FC = () => {
             {/* Item 1: CURRENT USER */}
             <div className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-zinc-900/90 to-zinc-900/90 border border-indigo-500/30 shadow-xs">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-inner">
-                  {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : 'D'}
+                <div className="relative">
+                  <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-inner ring-2 ring-emerald-500/50">
+                    {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : 'D'}
+                  </div>
+                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-zinc-900 flex items-center justify-center" title="Onlayn">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  </span>
                 </div>
 
                 <div>
-                  <h4 className="text-xs font-bold text-zinc-100">
-                    {user?.displayName || "Diyorbek Abdug'afforov"}
+                  <h4 className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
+                    <span>{user?.displayName || "Diyorbek Abdug'afforov"}</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[9px]">
+                      Onlayn
+                    </span>
                   </h4>
                   <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
                     <span className="font-semibold text-zinc-300">ELO {currentRating}</span>
@@ -355,7 +386,7 @@ export const HomePage: React.FC = () => {
               </div>
             )}
 
-            {/* EMPTY STATE IF NO OTHER DB PLAYERS */}
+            {/* EMPTY STATE IF NO OTHER ONLINE PLAYERS */}
             {!isPlayersLoading && onlinePlayers.length === 0 && (
               <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 text-center flex flex-col items-center justify-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400">
@@ -363,25 +394,40 @@ export const HomePage: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-zinc-100">
-                    {language === 'ru' ? 'Другие игроки офлайн' : language === 'en' ? 'Other players offline' : "Boshqa o'yinchilar hozircha oflayn"}
+                    {language === 'ru' ? 'Сейчас других игроков нет онлайн' : language === 'en' ? 'No other players online right now' : "Hozircha boshqa hech kim onlayn emas"}
                   </h4>
                   <p className="text-[11px] text-zinc-400 mt-0.5">
-                    {language === 'ru' ? 'Пригласите друга по ссылке, чтобы сыграть прямо сейчас!' : "Do'stingizni taklif qiling va darhol birgalikda o'ynang!"}
+                    {language === 'ru'
+                      ? 'Пригласите друга по ссылке или найдите случайного соперника!'
+                      : language === 'en'
+                        ? 'Invite a friend via link or search for a random match!'
+                        : "Do'stingizni taklif qiling yoki tasodifiy o'yinni tanlang!"}
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    triggerHaptic('medium');
-                    setIsInviteOpen(true);
-                  }}
-                  className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-950/40 active:scale-95"
-                >
-                  {language === 'ru' ? 'Пригласить друга' : "Do'stni taklif qilish"}
-                </button>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    onClick={() => {
+                      triggerHaptic('medium');
+                      setIsInviteOpen(true);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-950/40 active:scale-95"
+                  >
+                    {language === 'ru' ? 'Пригласить друга' : "Do'stni taklif qilish"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      triggerHaptic('heavy');
+                      navigate('/matchmaking');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 active:scale-95"
+                  >
+                    {language === 'ru' ? 'Случайная игра' : "Tasodifiy o'yin"}
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* REAL DATABASE PLAYERS LIST ONLY */}
+            {/* REAL ACTIVE ONLINE PLAYERS LIST ONLY */}
             {onlinePlayers.map((player) => (
               <div
                 key={player.id}
@@ -393,22 +439,30 @@ export const HomePage: React.FC = () => {
                       <img
                         src={player.avatarUrl}
                         alt={player.name}
-                        className="w-11 h-11 rounded-full object-cover ring-2 ring-indigo-500/30"
+                        className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-500/40"
                       />
                     ) : (
-                      <div className="w-11 h-11 rounded-full bg-blue-800 text-white flex items-center justify-center font-bold text-base">
+                      <div className="w-11 h-11 rounded-full bg-blue-800 text-white flex items-center justify-center font-bold text-base ring-2 ring-emerald-500/40">
                         {player.name.slice(0, 1).toUpperCase()}
                       </div>
                     )}
+                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-zinc-900 flex items-center justify-center" title="Onlayn">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    </span>
                     {player.isPremium && (
-                      <span className="absolute -bottom-1 -right-1 px-1 py-0.2 rounded-md bg-amber-500 text-black font-black text-[7px] uppercase tracking-tighter">
+                      <span className="absolute -top-1 -right-1 px-1 py-0.2 rounded-md bg-amber-500 text-black font-black text-[7px] uppercase tracking-tighter">
                         PRO
                       </span>
                     )}
                   </div>
 
                   <div>
-                    <h4 className="text-xs font-bold text-zinc-100">{player.name}</h4>
+                    <h4 className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
+                      <span>{player.name}</span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[8px]">
+                        Onlayn
+                      </span>
+                    </h4>
                     <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
                       <span className="font-semibold text-zinc-300">ELO {player.elo}</span>
                       <span>|</span>
@@ -431,9 +485,10 @@ export const HomePage: React.FC = () => {
 
                 <button
                   onClick={() => handleChallenge(player)}
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-[11px] transition-all shadow-md shadow-indigo-950/40 shrink-0"
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 hover:from-indigo-500 hover:to-rose-500 active:scale-95 text-white font-bold text-[11px] transition-all shadow-md shadow-indigo-950/40 shrink-0 flex items-center gap-1"
                 >
-                  {language === 'ru' ? 'Вызов' : language === 'en' ? 'Challenge' : "O'yinga taklif"}
+                  <Swords className="w-3 h-3" />
+                  <span>{language === 'ru' ? 'Вызов' : language === 'en' ? 'Challenge' : "O'yinga taklif"}</span>
                 </button>
               </div>
             ))}

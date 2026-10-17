@@ -199,6 +199,42 @@ export class GameService {
   }
 
   /**
+   * Creates a direct 1v1 challenge game between two users.
+   */
+  public static async createDirectChallengeGame(
+    whitePlayerId: string,
+    blackPlayerId: string,
+    mode: GameMode = GameMode.CLASSIC,
+    timeControl = { initialSeconds: 180, incrementSeconds: 2 },
+  ) {
+    const initialBoard = createInitialBoard();
+
+    const game = await prisma.game.create({
+      data: {
+        mode,
+        status: GameStatus.IN_PROGRESS,
+        whitePlayerId,
+        blackPlayerId,
+        currentTurn: PlayerColor.WHITE,
+        boardState: this.serializeBoard(initialBoard) as any,
+        isRated: true,
+        config: {
+          isDirectChallenge: true,
+          timeControl,
+          isGiveaway: mode === GameMode.GIVEAWAY,
+          rated: true,
+        },
+      },
+      include: {
+        whitePlayer: true,
+        blackPlayer: true,
+      },
+    });
+
+    return game;
+  }
+
+  /**
    * Joins an invite game as the second player (Black).
    */
   public static async joinInviteGame(gameId: string, userId: string) {

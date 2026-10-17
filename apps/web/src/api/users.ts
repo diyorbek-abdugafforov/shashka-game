@@ -33,4 +33,8 @@ export const usersApi = {
   getRatingHistory: async (userId: string): Promise<RatingHistoryModel[]> => {
     return apiClient<RatingHistoryModel[]>(`/users/${userId}/rating-history`);
   },
+
+  getOnlineUsers: async (): Promise<any[]> => {
+    return apiClient<any[]>('/users/online');
+  },
 };

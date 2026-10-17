@@ -5,8 +5,17 @@ import { UserService } from '../services/user.service.js';
 import { GameService } from '../services/game.service.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
+import { activeOnlineUsers } from '../plugins/socket.js';
 
 export const userRoutes: FastifyPluginAsync = async (fastify) => {
+  // GET /api/users/online
+  fastify.get('/online', async (_req, reply) => {
+    return reply.send({
+      success: true,
+      data: Array.from(activeOnlineUsers.values()),
+    });
+  });
+
   // GET /api/users/me
   fastify.get(
     '/me',
