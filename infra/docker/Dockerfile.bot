@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1
+FROM node:20-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN apk add --no-cache libc6-compat openssl
+WORKDIR /app
+
+# Stage 1: Install workspace dependencies
+FROM base AS dependencies
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json tsconfig.base.json ./
+COPY packages/config/package.json ./packages/config/
+COPY packages/database/package.json ./packages/database/
+COPY packages/game-engine/package.json ./packages/game-engine/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/validation/package.json ./packages/validation/
+COPY apps/bot/package.json ./apps/bot/
+RUN pnpm install
+
+# Stage 2: Build packages and Telegram bot
+FROM dependencies AS builder
+COPY packages ./packages
+COPY apps/bot ./apps/bot
+RUN pnpm --filter @shashka/database db:generate
+RUN pnpm --filter @shashka/bot... build
+
+# Stage 3: Production runner
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apk add --no-cache openssl
+
+# Run as non-root user
+USER node
+
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/packages ./packages
+COPY --from=builder --chown=node:node /app/apps/bot ./apps/bot
+
+CMD ["node", "apps/bot/dist/index.js"]

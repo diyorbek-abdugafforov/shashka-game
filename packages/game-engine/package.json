@@ -1,0 +1,33 @@
+{
+  "name": "@shashka/game-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Russian Checkers game engine, rule validator, and bitboard implementation",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@shashka/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.1"
+  }
+}

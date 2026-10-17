@@ -1,0 +1,168 @@
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import { gameListQuerySchema, timeControlSchema } from '@shashka/validation';
+import type { ApiResponse } from '@shashka/shared-types';
+import { GameService } from '../services/game.service.js';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
+import { validateBody, validateQuery } from '../middleware/validate.js';
+
+const createBotGameSchema = z.object({
+  difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).default('MEDIUM'),
+  timeControl: timeControlSchema.optional(),
+});
+
+const createOfflineGameSchema = z.object({
+  timeControl: timeControlSchema.optional(),
+});
+
+export const gameRoutes: FastifyPluginAsync = async (fastify) => {
+  // POST /api/games/bot
+  fastify.post(
+    '/bot',
+    {
+      preHandler: [authenticate, validateBody(createBotGameSchema)],
+    },
+    async (req, reply) => {
+      const authUser = req.user!;
+      const body = req.body as z.infer<typeof createBotGameSchema>;
+
+      const game = await GameService.createBotGame(
+        authUser.id,
+        body.difficulty,
+        body.timeControl,
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        data: game,
+      };
+
+      return reply.status(201).send(response);
+    },
+  );
+
+  // POST /api/games/invite
+  fastify.post(
+    '/invite',
+    {
+      preHandler: [authenticate],
+    },
+    async (req, reply) => {
+      const authUser = req.user!;
+      const body = (req.body as any) || {};
+      const mode = body.mode || 'CLASSIC';
+      const timeControl = body.timeControl || { initialSeconds: 180, incrementSeconds: 2 };
+
+      const game = await GameService.createInviteGame(authUser.id, mode, timeControl);
+
+      const response: ApiResponse = {
+        success: true,
+        data: game,
+      };
+
+      return reply.status(201).send(response);
+    },
+  );
+
+  // POST /api/games/:id/join
+  fastify.post(
+    '/:id/join',
+    {
+      preHandler: [authenticate],
+    },
+    async (req, reply) => {
+      const authUser = req.user!;
+      const { id } = req.params as { id: string };
+
+      const game = await GameService.joinInviteGame(id, authUser.id);
+
+      const response: ApiResponse = {
+        success: true,
+        data: game,
+      };
+
+      return reply.send(response);
+    },
+  );
+
+  // POST /api/games/offline
+  fastify.post(
+    '/offline',
+    {
+      preHandler: [authenticate, validateBody(createOfflineGameSchema)],
+    },
+    async (req, reply) => {
+      const authUser = req.user!;
+      const body = req.body as z.infer<typeof createOfflineGameSchema>;
+
+      const game = await GameService.createOfflineGame(authUser.id, body.timeControl);
+
+      const response: ApiResponse = {
+        success: true,
+        data: game,
+      };
+
+      return reply.status(201).send(response);
+    },
+  );
+
+  // GET /api/games/history
+  fastify.get(
+    '/history',
+    {
+      preHandler: [authenticate, validateQuery(gameListQuerySchema)],
+    },
+    async (req, reply) => {
+      const authUser = req.user!;
+      const query = req.query as any;
+      const page = query?.page || 1;
+      const limit = query?.limit || 20;
+
+      const history = await GameService.getUserGameHistory(authUser.id, page, limit);
+
+      const response: ApiResponse = {
+        success: true,
+        data: history,
+      };
+
+      return reply.send(response);
+    },
+  );
+
+  // GET /api/games/:id
+  fastify.get('/:id', { preHandler: [optionalAuthenticate] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const game = await GameService.getGame(id);
+    const moves = await GameService.getGameMoves(id);
+
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        game: {
+          ...game,
+          boardState: GameService.deserializeBoard(game.boardState),
+        },
+        moves,
+        whitePlayer: game.whitePlayer,
+        blackPlayer: game.blackPlayer,
+      },
+    };
+
+    return reply.send(response);
+  });
+
+  // GET /api/games/:id/moves
+  fastify.get('/:id/moves', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const moves = await GameService.getGameMoves(id);
+
+    const response: ApiResponse = {
+      success: true,
+      data: moves,
+    };
+
+    return reply.send(response);
+  });
+};
+
+export default gameRoutes;

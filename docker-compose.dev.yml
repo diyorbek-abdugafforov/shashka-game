@@ -1,0 +1,56 @@
+# Docker Compose Development Overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  api:
+    build:
+      target: dependencies
+    command: pnpm --filter @shashka/api dev
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    volumes:
+      - ./packages:/app/packages
+      - ./apps/api:/app/apps/api
+      - /app/node_modules
+      - /app/packages/config/dist
+      - /app/packages/database/dist
+      - /app/packages/game-engine/dist
+      - /app/packages/shared-types/dist
+      - /app/packages/ui/dist
+      - /app/packages/validation/dist
+
+  bot:
+    build:
+      target: dependencies
+    command: pnpm --filter @shashka/bot dev
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./packages:/app/packages
+      - ./apps/bot:/app/apps/bot
+      - /app/node_modules
+
+  web:
+    build:
+      target: dependencies
+    command: pnpm --filter @shashka/web dev --host 0.0.0.0 --port 3000
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./packages/ui:/app/packages/ui
+      - ./packages/shared-types:/app/packages/shared-types
+      - ./apps/web:/app/apps/web
+      - /app/node_modules
+
+  admin:
+    build:
+      target: dependencies
+    command: pnpm --filter @shashka/admin dev --host 0.0.0.0 --port 3001
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./packages/ui:/app/packages/ui
+      - ./packages/shared-types:/app/packages/shared-types
+      - ./apps/admin:/app/apps/admin
+      - /app/node_modules

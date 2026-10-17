@@ -1,0 +1,188 @@
+name: shashka-platform
+
+services:
+  # ----------------------------------------------------
+  # DATABASE (PostgreSQL)
+  # ----------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: shashka-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shashka_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shashka_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-shashka_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shashka-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shashka_user} -d ${POSTGRES_DB:-shashka_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ----------------------------------------------------
+  # IN-MEMORY CACHE & QUEUES (Redis)
+  # ----------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: shashka-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shashka-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ----------------------------------------------------
+  # REST & WEBSOCKET GAME SERVER (Fastify)
+  # ----------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: shashka-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-shashka_user}:${POSTGRES_PASSWORD:-shashka_secure_password}@postgres:5432/${POSTGRES_DB:-shashka_db}?schema=public
+      REDIS_URL: redis://redis:6379/0
+      API_PORT: 4000
+      APP_URL: ${APP_URL:-http://localhost}
+      WEB_URL: ${WEB_URL:-http://localhost:3000}
+      ADMIN_URL: ${ADMIN_URL:-http://localhost:3001}
+      SESSION_SECRET: ${SESSION_SECRET:-super_secret_session_key_minimum_32_characters_random}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_signature_key_minimum_32_characters_random}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-sample_token}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-development_webhook_secret_key_32chars}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shashka-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ----------------------------------------------------
+  # TELEGRAM BOT & MINI APP LAUNCHER (grammY)
+  # ----------------------------------------------------
+  bot:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.bot
+    container_name: shashka-bot
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-shashka_user}:${POSTGRES_PASSWORD:-shashka_secure_password}@postgres:5432/${POSTGRES_DB:-shashka_db}?schema=public
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-sample_token}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-RussianCheckersBot}
+      WEB_URL: ${WEB_URL:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - shashka-net
+
+  # ----------------------------------------------------
+  # WEB APPLICATION & MINI APP CLIENT (React + Vite)
+  # ----------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+    container_name: shashka-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - shashka-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ----------------------------------------------------
+  # ADMIN BACKOFFICE PORTAL (React + Vite)
+  # ----------------------------------------------------
+  admin:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.admin
+    container_name: shashka-admin
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    networks:
+      - shashka-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3001/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ----------------------------------------------------
+  # REVERSE PROXY & GATEWAY (Nginx)
+  # ----------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: shashka-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
+    networks:
+      - shashka-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  shashka-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

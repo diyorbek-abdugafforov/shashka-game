@@ -1,0 +1,430 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------
+// ENUMS
+// ----------------------------------------------------
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum GameMode {
+  CLASSIC
+  BLITZ
+  RAPID
+  GIVEAWAY
+  BOT
+  CUSTOM
+}
+
+enum GameStatus {
+  WAITING_FOR_PLAYERS
+  IN_PROGRESS
+  FINISHED
+  ABORTED
+}
+
+enum GameResult {
+  WHITE_WON
+  BLACK_WON
+  DRAW
+}
+
+enum ResultReason {
+  ALL_PIECES_CAPTURED
+  NO_LEGAL_MOVES
+  RESIGNATION
+  TIMEOUT
+  DISCONNECTION
+  DRAW_AGREEMENT
+  THREEFOLD_REPETITION
+  FIFTEEN_MOVE_RULE
+  ABORTED_BY_SERVER
+}
+
+enum PlayerColor {
+  WHITE
+  BLACK
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  BLOCKED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+enum WalletTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  GAME_REWARD
+  GAME_ENTRY_FEE
+  SHOP_PURCHASE
+  REFERRAL_BONUS
+  DAILY_REWARD
+  ADMIN_ADJUSTMENT
+}
+
+enum ShopItemCategory {
+  BOARD_THEME
+  PIECE_SKIN
+  AVATAR_FRAME
+  EMOJI_PACK
+  TITLE
+}
+
+enum ReportReason {
+  CHEATING
+  OFFENSIVE_BEHAVIOR
+  STALLING
+  INAPPROPRIATE_PROFILE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum AdminActionType {
+  BAN_USER
+  UNBAN_USER
+  UPDATE_USER_ROLE
+  UPDATE_WALLET_BALANCE
+  RESOLVE_REPORT
+  UPDATE_SYSTEM_SETTING
+  TOGGLE_FEATURE_FLAG
+  ABORT_GAME
+}
+
+// ----------------------------------------------------
+// USER & AUTHENTICATION MODELS
+// ----------------------------------------------------
+
+model User {
+  id          String    @id @default(uuid())
+  username    String?   @unique
+  displayName String
+  avatarUrl   String?
+  language    String    @default("ru")
+  role        UserRole  @default(USER)
+  isBot       Boolean   @default(false)
+  isBanned    Boolean   @default(false)
+  bannedUntil DateTime?
+  banReason   String?
+  rating      Float     @default(1200)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  telegramAccount     TelegramAccount?
+  sessions            Session[]
+  whiteGames          Game[]             @relation("WhitePlayer")
+  blackGames          Game[]             @relation("BlackPlayer")
+  wonGames            Game[]             @relation("WinnerPlayer")
+  ratingHistory       RatingHistory[]
+  sentFriendships     Friendship[]       @relation("UserFriendships")
+  receivedFriendships Friendship[]       @relation("FriendUserFriendships")
+  sentInvitations     GameInvitation[]   @relation("SentGameInvitations")
+  receivedInvitations GameInvitation[]   @relation("ReceivedGameInvitations")
+  referralsGiven      Referral[]         @relation("ReferrerUser")
+  referralReceived    Referral?          @relation("ReferredUser")
+  wallet              Wallet?
+  inventory           UserInventory[]
+  filedReports        Report[]           @relation("ReporterUser")
+  receivedReports     Report[]           @relation("ReportedUser")
+  resolvedReports     Report[]           @relation("ResolvedReports")
+  adminActions        AdminAction[]      @relation("AdminUserActions")
+
+  @@index([username])
+  @@index([role])
+  @@index([rating(sort: Desc)])
+  @@index([createdAt])
+}
+
+model TelegramAccount {
+  id           String   @id @default(uuid())
+  telegramId   String   @unique
+  firstName    String
+  lastName     String?
+  username     String?
+  photoUrl     String?
+  languageCode String?
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([telegramId])
+  @@index([username])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  token        String?
+  tokenHash    String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+  isRevoked    Boolean  @default(false)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ----------------------------------------------------
+// GAME MODELS
+// ----------------------------------------------------
+
+model Game {
+  id              String        @id @default(uuid())
+  mode            GameMode      @default(CLASSIC)
+  status          GameStatus    @default(WAITING_FOR_PLAYERS)
+  result          GameResult?
+  resultReason    ResultReason?
+  whitePlayerId   String?
+  whitePlayer     User?         @relation("WhitePlayer", fields: [whitePlayerId], references: [id], onDelete: SetNull)
+  blackPlayerId   String?
+  blackPlayer     User?         @relation("BlackPlayer", fields: [blackPlayerId], references: [id], onDelete: SetNull)
+  winnerId        String?
+  winner          User?         @relation("WinnerPlayer", fields: [winnerId], references: [id], onDelete: SetNull)
+  currentTurn     PlayerColor   @default(WHITE)
+  boardState      Json          // 8x8 matrix representation
+  moveCount       Int           @default(0)
+  startedAt       DateTime      @default(now())
+  finishedAt      DateTime?
+  isRated         Boolean       @default(true)
+  config          Json          // Time controls, rules toggles
+
+  // Relations
+  moves           Move[]
+  ratingHistories RatingHistory[]
+  reports         Report[]
+
+  @@index([status])
+  @@index([whitePlayerId])
+  @@index([blackPlayerId])
+  @@index([startedAt])
+}
+
+model Move {
+  id          String      @id @default(uuid())
+  gameId      String
+  game        Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  moveNumber  Int
+  player      PlayerColor
+  from        Json        // { row, col }
+  to          Json        // { row, col }
+  captures    Json        @default("[]") // [{ row, col }]
+  isPromotion Boolean     @default(false)
+  notation    String      // e.g. "c3-d4" or "c3:e5:g7"
+  timestamp   DateTime    @default(now())
+
+  @@index([gameId, moveNumber])
+}
+
+model RatingHistory {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating          Float
+  ratingDeviation Float
+  volatility      Float
+  change          Float
+  gameId          String?
+  game            Game?    @relation(fields: [gameId], references: [id], onDelete: SetNull)
+  timestamp       DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([gameId])
+}
+
+// ----------------------------------------------------
+// SOCIAL & MULTIPLAYER MODELS
+// ----------------------------------------------------
+
+model Friendship {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation("UserFriendships", fields: [userId], references: [id], onDelete: Cascade)
+  friendId  String
+  friend    User             @relation("FriendUserFriendships", fields: [friendId], references: [id], onDelete: Cascade)
+  status    FriendshipStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+}
+
+model GameInvitation {
+  id         String           @id @default(uuid())
+  fromUserId String
+  fromUser   User             @relation("SentGameInvitations", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId   String
+  toUser     User             @relation("ReceivedGameInvitations", fields: [toUserId], references: [id], onDelete: Cascade)
+  gameMode   GameMode         @default(CLASSIC)
+  status     InvitationStatus @default(PENDING)
+  expiresAt  DateTime
+  createdAt  DateTime         @default(now())
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([status])
+}
+
+model Referral {
+  id          String   @id @default(uuid())
+  referrerId  String
+  referrer    User     @relation("ReferrerUser", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredId  String   @unique
+  referred    User     @relation("ReferredUser", fields: [referredId], references: [id], onDelete: Cascade)
+  rewardGiven Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([referrerId])
+}
+
+// ----------------------------------------------------
+// WALLET, ECONOMY & INVENTORY
+// ----------------------------------------------------
+
+model Wallet {
+  id           String              @id @default(uuid())
+  userId       String              @unique
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance      Int                 @default(0) // Virtual currency tokens / coins
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  transactions WalletTransaction[]
+
+  @@index([userId])
+}
+
+model WalletTransaction {
+  id           String                @id @default(uuid())
+  walletId     String
+  wallet       Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type         WalletTransactionType
+  amount       Int                   // Positive for credits, negative for debits
+  balanceAfter Int
+  description  String
+  referenceId  String?
+  referenceType String?
+  createdAt    DateTime              @default(now())
+
+  @@index([walletId, createdAt])
+}
+
+model ShopItem {
+  id          String           @id @default(uuid())
+  name        String
+  description String
+  category    ShopItemCategory
+  price       Int
+  imageUrl    String
+  isActive    Boolean          @default(true)
+  metadata    Json             @default("{}") // Theme colors, asset pointers
+  createdAt   DateTime         @default(now())
+
+  inventories UserInventory[]
+
+  @@index([category, isActive])
+}
+
+model UserInventory {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       ShopItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  acquiredAt DateTime @default(now())
+  isEquipped Boolean  @default(false)
+
+  @@unique([userId, itemId])
+  @@index([userId])
+}
+
+// ----------------------------------------------------
+// MODERATION & ADMINISTRATION
+// ----------------------------------------------------
+
+model Report {
+  id             String       @id @default(uuid())
+  reporterId     String
+  reporter       User         @relation("ReporterUser", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUserId String?
+  reportedUser   User?        @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
+  reportedGameId String?
+  reportedGame   Game?        @relation(fields: [reportedGameId], references: [id], onDelete: SetNull)
+  reason         ReportReason
+  description    String
+  status         ReportStatus @default(PENDING)
+  resolvedBy     String?
+  resolver       User?        @relation("ResolvedReports", fields: [resolvedBy], references: [id], onDelete: SetNull)
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([status])
+  @@index([reporterId])
+  @@index([reportedUserId])
+}
+
+model AdminAction {
+  id         String          @id @default(uuid())
+  adminId    String
+  admin      User            @relation("AdminUserActions", fields: [adminId], references: [id], onDelete: Cascade)
+  action     AdminActionType
+  targetType String          // e.g. "USER", "GAME", "SETTING"
+  targetId   String
+  details    Json            @default("{}")
+  createdAt  DateTime        @default(now())
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String
+  updatedAt   DateTime @updatedAt
+  updatedBy   String
+
+  @@index([key])
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  enabled     Boolean  @default(false)
+  description String
+  updatedAt   DateTime @updatedAt
+  updatedBy   String
+
+  @@index([key])
+}

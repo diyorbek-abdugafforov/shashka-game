@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1
+FROM node:20-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Stage 1: Install workspace dependencies
+FROM base AS dependencies
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json tsconfig.base.json ./
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/ui/package.json ./packages/ui/
+COPY apps/web/package.json ./apps/web/
+RUN pnpm install
+
+# Stage 2: Build packages and Web application
+FROM dependencies AS builder
+COPY packages/shared-types ./packages/shared-types
+COPY packages/ui ./packages/ui
+COPY apps/web ./apps/web
+RUN pnpm --filter @shashka/web... build
+
+# Stage 3: Lightweight Nginx static file server
+FROM nginx:alpine AS runner
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+
+# Custom nginx config to support SPA client routing and port 3000
+RUN echo 'server { \
+    listen 3000; \
+    server_name localhost; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+    location ~* \.(?:ico|css|js|gif|jpe?g|png|woff2?|eot|ttf|svg)$ { \
+        expires 6M; \
+        access_log off; \
+        add_header Cache-Control "public"; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

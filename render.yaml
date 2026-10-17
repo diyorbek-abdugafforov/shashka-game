@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: shashka-backend
+    env: node
+    plan: free
+    region: frankfurt
+    buildCommand: pnpm install && pnpm db:generate && pnpm build
+    startCommand: pnpm start:render
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        value: wikipediyauzrobot
+      - key: WEB_URL
+        value: https://shashka-shaxmat.netlify.app
+      - key: CORS_ORIGINS
+        value: https://shashka-shaxmat.netlify.app
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
