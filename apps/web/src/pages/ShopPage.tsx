@@ -132,8 +132,16 @@ export const ShopPage: React.FC = () => {
     },
   ];
 
-  const displayItems = (items && items.length > 0 ? items : fallbackItems).filter(
-    (item) => item.category === selectedCategory,
+  const rawList: ShopItemModel[] = Array.isArray(items)
+    ? items
+    : Array.isArray((items as any)?.data)
+    ? (items as any).data
+    : Array.isArray((items as any)?.items)
+    ? (items as any).items
+    : fallbackItems;
+
+  const displayItems = (Array.isArray(rawList) ? rawList : fallbackItems).filter(
+    (item) => item && item.category === selectedCategory,
   );
 
   const handlePurchase = (item: ShopItemModel) => {

@@ -14,10 +14,33 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ShopPage } from './pages/ShopPage';
 import { MiniGamesPage } from './pages/MiniGamesPage';
 
+const RouteErrorBoundary: React.FC = () => {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-zinc-950 text-zinc-100 max-w-md mx-auto">
+      <div className="w-14 h-14 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mb-4 text-2xl">
+        ♟️
+      </div>
+      <h2 className="text-base font-bold mb-1.5">Sahifani yuklashda xatolik</h2>
+      <p className="text-xs text-zinc-400 mb-5 max-w-xs">
+        Iltimos, bosh sahifaga qayting yoki sahifani yangilang.
+      </p>
+      <button
+        onClick={() => {
+          window.location.href = '/';
+        }}
+        className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md active:scale-95"
+      >
+        Bosh sahifaga qaytish
+      </button>
+    </div>
+  );
+};
+
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <HomePage />,
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/modes',
