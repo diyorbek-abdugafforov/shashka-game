@@ -2,7 +2,7 @@ import React from 'react';
 import { GameResult, ResultReason, PlayerColor } from '@shashka/shared-types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { Trophy, Frown, Handshake, ArrowUpRight, ArrowDownRight, RotateCcw, Home } from 'lucide-react';
+import { Trophy, Frown, Handshake, ArrowUpRight, ArrowDownRight, RotateCcw, Home, Eye } from 'lucide-react';
 import { getResultReasonLabel, getGameResultLabel } from '../../utils/format';
 import { useTranslation } from '../../i18n';
 import { cn } from '../../utils/cn';
@@ -13,6 +13,7 @@ export interface GameResultModalProps {
   reason: ResultReason | null;
   myColor?: PlayerColor | null;
   ratingChange?: number;
+  onReviewGame?: () => void;
   onPlayAgain: () => void;
   onExit: () => void;
 }
@@ -23,6 +24,7 @@ export const GameResultModal: React.FC<GameResultModalProps> = ({
   reason,
   myColor,
   ratingChange,
+  onReviewGame,
   onPlayAgain,
   onExit,
 }) => {
@@ -109,6 +111,22 @@ export const GameResultModal: React.FC<GameResultModalProps> = ({
           >
             {t('game_play_again')}
           </Button>
+
+          {onReviewGame && (
+            <Button
+              variant="outline"
+              size="md"
+              onClick={onReviewGame}
+              fullWidth
+              leftIcon={<Eye className="w-4 h-4" />}
+            >
+              {language === 'ru'
+                ? 'Посмотреть повтор игры'
+                : language === 'en'
+                  ? 'Review Game'
+                  : "O'yin takrorini ko'rish"}
+            </Button>
+          )}
 
           <Button
             variant="secondary"

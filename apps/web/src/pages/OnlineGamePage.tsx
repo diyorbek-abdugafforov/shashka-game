@@ -358,6 +358,7 @@ export const OnlineGamePage: React.FC = () => {
         reason={resultReason}
         myColor={myColor}
         ratingChange={gameResult === GameResult.DRAW ? 0 : gameResult === GameResult.WHITE_WON ? (myColor === PlayerColor.WHITE ? 16 : -14) : (myColor === PlayerColor.BLACK ? 16 : -14)}
+        onReviewGame={() => gameId && navigate(`/games/${gameId}`)}
         onPlayAgain={() => navigate('/modes')}
         onExit={() => navigate('/')}
       />

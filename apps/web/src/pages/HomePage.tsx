@@ -30,8 +30,9 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
-
 import { useSocketContext } from '../providers/SocketProvider';
+import { friendsApi, type FriendModel } from '../api/friends';
+import { UserProfileModal, type UserProfileTarget } from '../components/common/UserProfileModal';
 
 interface OnlinePlayer {
   id: string;
@@ -78,6 +79,15 @@ export const HomePage: React.FC = () => {
     queryFn: () => usersApi.getOnlineUsers(),
     refetchInterval: 5000,
   });
+
+  // Query friends list
+  const { data: friendsList, isLoading: isFriendsLoading } = useQuery({
+    queryKey: ['friends-list'],
+    queryFn: () => friendsApi.getFriends(),
+    staleTime: 10000,
+  });
+
+  const [selectedProfileUser, setSelectedProfileUser] = useState<UserProfileTarget | null>(null);
 
   // Query top leaderboard player for marquee bar
   const { data: leaderboardData } = useQuery({
@@ -297,39 +307,122 @@ export const HomePage: React.FC = () => {
               {language === 'ru' ? 'Друзья' : language === 'en' ? 'Friends' : "Do'stlar"}
             </span>
             <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
-              0
+              {friendsList ? friendsList.length : 0}
             </span>
           </button>
         </div>
 
         {/* Players List or Friends Section */}
         {activeTab === 'friends' ? (
-          <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 text-center flex flex-col items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-zinc-100">
-                {language === 'ru' ? 'У вас пока нет друзей' : language === 'en' ? 'No friends yet' : "Do'stlaringiz hali yo'q"}
-              </h4>
-              <p className="text-[11px] text-zinc-400 mt-1 max-w-[240px]">
-                {language === 'ru'
-                  ? 'Отправьте ссылку-приглашение друзьям, чтобы играть вместе в реальном времени!'
-                  : language === 'en'
-                    ? 'Send an invite link to your friends to play together in real-time!'
-                    : "Do'stlaringizga havola yuboring va birgalikda shashka o'ynang!"}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                triggerHaptic('medium');
-                setIsInviteOpen(true);
-              }}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-950/40 active:scale-95 flex items-center gap-1.5"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>{language === 'ru' ? 'Пригласить друга' : language === 'en' ? 'Invite Friend' : "Do'stni taklif qilish"}</span>
-            </button>
+          <div className="flex flex-col gap-2 mt-1">
+            {friendsList && friendsList.length > 0 ? (
+              friendsList.map((friend) => (
+                <div
+                  key={friend.id}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors"
+                >
+                  <div
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setSelectedProfileUser({
+                        id: friend.id,
+                        name: friend.displayName,
+                        username: friend.username,
+                        avatarUrl: friend.avatarUrl,
+                        elo: friend.rating || 1200,
+                        isOnline: friend.isOnline,
+                      });
+                    }}
+                    className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                  >
+                    <div className="relative">
+                      {friend.avatarUrl ? (
+                        <img
+                          src={friend.avatarUrl}
+                          alt={friend.displayName}
+                          className="w-11 h-11 rounded-full object-cover ring-2 ring-indigo-500/30"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-full bg-blue-800 text-white flex items-center justify-center font-bold text-base ring-2 ring-indigo-500/30">
+                          {friend.displayName.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <span
+                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-zinc-900 flex items-center justify-center ${
+                          friend.isOnline ? 'bg-emerald-500' : 'bg-zinc-500'
+                        }`}
+                        title={friend.isOnline ? 'Onlayn' : 'Oflayn'}
+                      >
+                        {friend.isOnline && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="truncate">
+                      <h4 className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
+                        <span className="truncate">{friend.displayName}</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded-full text-[8px] font-bold shrink-0 ${
+                            friend.isOnline
+                              ? 'bg-emerald-500/20 text-emerald-400'
+                              : 'bg-zinc-800 text-zinc-400'
+                          }`}
+                        >
+                          {friend.isOnline ? 'Onlayn' : 'Oflayn'}
+                        </span>
+                      </h4>
+                      <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
+                        <span className="font-semibold text-zinc-300">ELO {friend.rating || 1200}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      handleChallenge({
+                        id: friend.id,
+                        name: friend.displayName,
+                        elo: friend.rating || 1200,
+                        diamonds: 100,
+                      })
+                    }
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 hover:from-indigo-500 hover:to-rose-500 active:scale-95 text-white font-bold text-[11px] transition-all shadow-md shadow-indigo-950/40 shrink-0 flex items-center gap-1 ml-2"
+                  >
+                    <Swords className="w-3 h-3" />
+                    <span>{language === 'ru' ? 'Вызов' : language === 'en' ? 'Challenge' : "O'yinga taklif"}</span>
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 text-center flex flex-col items-center justify-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <Users className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-100">
+                    {language === 'ru' ? 'У вас пока нет друзей' : language === 'en' ? 'No friends yet' : "Do'stlaringiz hali yo'q"}
+                  </h4>
+                  <p className="text-[11px] text-zinc-400 mt-1 max-w-[240px]">
+                    {language === 'ru'
+                      ? 'Нажмите на любого игрока, чтобы добавить его в друзья, или отправьте ссылку-приглашение!'
+                      : language === 'en'
+                        ? 'Tap any player to add them as friend, or send an invite link!'
+                        : "O'yinchilar ustiga bosib do'stlarga qo'shing yoki do'stingizga havola yuboring!"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    triggerHaptic('medium');
+                    setIsInviteOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-950/40 active:scale-95 flex items-center gap-1.5"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{language === 'ru' ? 'Пригласить друга' : language === 'en' ? 'Invite Friend' : "Do'stni taklif qilish"}</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-2 mt-1">
@@ -433,7 +526,20 @@ export const HomePage: React.FC = () => {
                 key={player.id}
                 className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors"
               >
-                <div className="flex items-center gap-3">
+                <div
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setSelectedProfileUser({
+                      id: player.id,
+                      name: player.name,
+                      elo: player.elo,
+                      diamonds: player.diamonds,
+                      avatarUrl: player.avatarUrl,
+                      isOnline: true,
+                    });
+                  }}
+                  className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                >
                   <div className="relative">
                     {player.avatarUrl ? (
                       <img
@@ -585,6 +691,14 @@ export const HomePage: React.FC = () => {
       <InviteModal
         isOpen={isInviteOpen}
         onClose={() => setIsInviteOpen(false)}
+      />
+
+      {/* User Profile & Add Friend Modal */}
+      <UserProfileModal
+        isOpen={Boolean(selectedProfileUser)}
+        onClose={() => setSelectedProfileUser(null)}
+        targetUser={selectedProfileUser}
+        onChallenge={(id, name) => sendChallenge(id, name)}
       />
     </PageContainer>
   );

@@ -17,9 +17,12 @@ import {
   Award,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { useSocketContext } from '../providers/SocketProvider';
+import { UserProfileModal, type UserProfileTarget } from '../components/common/UserProfileModal';
 
 interface LeaderboardUser {
   rank: number;
+  userId: string;
   name: string;
   elo: number;
   avatar?: string;
@@ -28,9 +31,11 @@ interface LeaderboardUser {
 
 export const LeaderboardPage: React.FC = () => {
   const { t, language } = useTranslation();
+  const { sendChallenge } = useSocketContext();
   const [selectedFilter, setSelectedFilter] = useState<'pro' | 'puzzles' | 'wins'>('pro');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [selectedProfileUser, setSelectedProfileUser] = useState<UserProfileTarget | null>(null);
 
   const { data: leaderboardData, isLoading } = useQuery({
     queryKey: ['leaderboard-full', selectedFilter],
@@ -41,6 +46,7 @@ export const LeaderboardPage: React.FC = () => {
   // Convert real database entries ONLY (bez baza hech qanday soxta odamlar yo'q)
   const dbUsers: LeaderboardUser[] = (leaderboardData?.topPlayers || []).map((entry: LeaderboardEntry, idx: number) => ({
     rank: entry.rank || idx + 1,
+    userId: entry.userId,
     name: entry.displayName,
     elo: entry.rating,
     avatar: entry.avatarUrl || undefined,
@@ -206,7 +212,16 @@ export const LeaderboardPage: React.FC = () => {
               return (
                 <div
                   key={item.rank}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-zinc-850/40 transition-colors"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setSelectedProfileUser({
+                      id: item.userId,
+                      name: item.name,
+                      elo: item.elo,
+                      avatarUrl: item.avatar,
+                    });
+                  }}
+                  className="flex items-center justify-between px-4 py-3 hover:bg-zinc-850/60 active:bg-zinc-800 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
                     {/* Rank icon / number */}
@@ -256,6 +271,14 @@ export const LeaderboardPage: React.FC = () => {
           </div>
         </Card>
       </div>
+
+      {/* User Profile & Add Friend Modal */}
+      <UserProfileModal
+        isOpen={Boolean(selectedProfileUser)}
+        onClose={() => setSelectedProfileUser(null)}
+        targetUser={selectedProfileUser}
+        onChallenge={(id, name) => sendChallenge(id, name)}
+      />
     </PageContainer>
   );
 };
