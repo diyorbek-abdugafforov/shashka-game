@@ -5,10 +5,17 @@ import { cn } from '../../utils/cn';
 import { triggerHaptic } from '../../utils/telegram';
 import { useTranslation } from '../../i18n';
 
+interface NavItem {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+}
+
 export const BottomNav: React.FC = () => {
   const { t } = useTranslation();
 
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       to: '/profile',
       label: t('nav_profile'),
@@ -23,7 +30,6 @@ export const BottomNav: React.FC = () => {
       to: '/tournaments',
       label: t('nav_tournaments'),
       icon: Trophy,
-      badge: t('nav_coming_soon'),
     },
     {
       to: '/leaderboard',

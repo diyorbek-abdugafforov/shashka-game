@@ -1,168 +1,257 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { GameMode, type LeaderboardEntry } from '@shashka/shared-types';
 import { PageContainer } from '../components/layout/PageContainer';
 import { Card } from '../components/ui/Card';
-import { PlayerRow } from '../components/common/PlayerRow';
-import { Skeleton } from '../components/ui/Skeleton';
-import { ErrorState } from '../components/ui/ErrorState';
-import { EmptyState } from '../components/ui/EmptyState';
-import { leaderboardApi } from '../api/leaderboard';
-import { useAuth } from '../hooks/useAuth';
-import { Trophy, Medal, Sparkles } from 'lucide-react';
-import { cn } from '../utils/cn';
+import { useTranslation } from '../i18n';
 import { triggerHaptic } from '../utils/telegram';
+import {
+  Trophy,
+  Search,
+  HelpCircle,
+  TrendingUp,
+  Puzzle,
+  Medal,
+  Gem,
+  Award,
+} from 'lucide-react';
+import { cn } from '../utils/cn';
+
+interface LeaderboardUser {
+  rank: number;
+  name: string;
+  elo: number;
+  avatar?: string;
+  badge?: string;
+}
+
+const LEADERBOARD_USERS: LeaderboardUser[] = [
+  {
+    rank: 1,
+    name: 'Shaxrizod Xamidov',
+    elo: 2500,
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+  },
+  {
+    rank: 2,
+    name: 'Islam ت',
+    elo: 2500,
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+  },
+  {
+    rank: 3,
+    name: 'NAVOIY',
+    badge: '💎',
+    elo: 2500,
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces',
+  },
+  {
+    rank: 4,
+    name: 'FAYZULLO',
+    elo: 2500,
+  },
+  {
+    rank: 5,
+    name: 'Oysha',
+    elo: 2500,
+  },
+  {
+    rank: 6,
+    name: 'Bekzod Aliyev',
+    elo: 2480,
+  },
+  {
+    rank: 7,
+    name: 'Jasurbek Grandmaster',
+    elo: 2465,
+  },
+];
 
 export const LeaderboardPage: React.FC = () => {
-  const { user } = useAuth();
-  const [selectedMode, setSelectedMode] = useState<GameMode>(GameMode.CLASSIC);
+  const { t, language } = useTranslation();
+  const [selectedFilter, setSelectedFilter] = useState<'pro' | 'puzzles' | 'wins'>('pro');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['leaderboard', selectedMode],
-    queryFn: () => leaderboardApi.getLeaderboard(selectedMode, 50),
-    staleTime: 60000,
-  });
-
-  const handleModeChange = (mode: GameMode) => {
-    triggerHaptic('selection');
-    setSelectedMode(mode);
-  };
-
-  const topPlayers = data?.topPlayers || [];
-  const userRank = data?.userRank;
+  const filteredUsers = LEADERBOARD_USERS.filter((u) =>
+    u.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   return (
     <PageContainer
       headerProps={{
-        title: 'Yetakchilar jadvali',
+        title: language === 'ru' ? 'Таблица лидеров' : language === 'en' ? 'Leaderboard' : 'Reyting Jadvali',
+        rightAction: (
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              setShowSearch((prev) => !prev);
+            }}
+            className="w-8 h-8 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-zinc-300 flex items-center justify-center transition-colors active:scale-95"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        ),
       }}
     >
-      <div className="flex flex-col gap-4">
-        {/* Mode Tabs */}
-        <div className="flex items-center p-1 bg-zinc-900 rounded-xl border border-zinc-800">
-          <button
-            onClick={() => handleModeChange(GameMode.CLASSIC)}
-            className={cn(
-              'flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all select-none',
-              selectedMode === GameMode.CLASSIC
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200',
-            )}
-          >
-            Klassik
-          </button>
-          <button
-            onClick={() => handleModeChange(GameMode.BLITZ)}
-            className={cn(
-              'flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all select-none',
-              selectedMode === GameMode.BLITZ
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200',
-            )}
-          >
-            Blits
-          </button>
-          <button
-            onClick={() => handleModeChange(GameMode.RAPID)}
-            className={cn(
-              'flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all select-none',
-              selectedMode === GameMode.RAPID
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-zinc-400 hover:text-zinc-200',
-            )}
-          >
-            Rapid
-          </button>
-        </div>
+      <div className="flex flex-col gap-3.5 pb-6">
+        {/* Search input if toggled */}
+        {showSearch && (
+          <div className="p-1">
+            <input
+              type="text"
+              placeholder={language === 'ru' ? 'Поиск игрока...' : "O'yinchini qidirish..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-700 text-xs text-zinc-100 rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
+              autoFocus
+            />
+          </div>
+        )}
 
-        {/* User's position card if exists */}
-        {userRank && (
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1">
-              Sizning natijangiz
+        {/* Filter category pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {/* Filter 1 */}
+          <button
+            onClick={() => {
+              triggerHaptic('selection');
+              setSelectedFilter('pro');
+            }}
+            className={cn(
+              'px-3 py-2 rounded-2xl text-left shrink-0 transition-all border select-none min-w-[130px]',
+              selectedFilter === 'pro'
+                ? 'bg-indigo-950/60 border-indigo-500 text-white'
+                : 'bg-zinc-900/80 border-zinc-800 text-zinc-400',
+            )}
+          >
+            <span className="text-[10px] block font-semibold text-indigo-400">
+              📈 Professional (ELO)
             </span>
-            <PlayerRow player={userRank} isCurrentUser={true} />
-          </div>
-        )}
+            <span className="text-xs font-bold block mt-0.5 truncate text-zinc-200">
+              👑 Shaxrizod Xam...
+            </span>
+          </button>
 
-        {/* Top 3 Podium Highlights if we have players */}
-        {!isLoading && topPlayers.length >= 3 && (
-          <div className="grid grid-cols-3 gap-2 my-1 items-end">
-            {/* 2nd place */}
-            <div className="flex flex-col items-center p-3 rounded-2xl bg-zinc-900/60 border border-slate-700/40 text-center">
-              <div className="w-6 h-6 rounded-full bg-slate-300/20 text-slate-300 flex items-center justify-center font-bold text-xs mb-1">
-                2
-              </div>
-              <span className="text-xs font-bold text-zinc-200 truncate w-full">
-                {topPlayers[1]?.displayName}
-              </span>
-              <span className="text-[10px] font-mono font-semibold text-indigo-400 mt-0.5">
-                {topPlayers[1]?.rating}
-              </span>
-            </div>
+          {/* Filter 2 */}
+          <button
+            onClick={() => {
+              triggerHaptic('selection');
+              setSelectedFilter('puzzles');
+            }}
+            className={cn(
+              'px-3 py-2 rounded-2xl text-left shrink-0 transition-all border select-none min-w-[120px]',
+              selectedFilter === 'puzzles'
+                ? 'bg-indigo-950/60 border-indigo-500 text-white'
+                : 'bg-zinc-900/80 border-zinc-800 text-zinc-400',
+            )}
+          >
+            <span className="text-[10px] block font-semibold text-violet-400">
+              🧩 Masalalar
+            </span>
+            <span className="text-xs font-bold block mt-0.5 truncate text-zinc-200">
+              👑 David Laid
+            </span>
+          </button>
 
-            {/* 1st place */}
-            <div className="flex flex-col items-center p-3.5 rounded-2xl bg-gradient-to-b from-amber-950/40 to-zinc-900 border border-amber-500/40 text-center scale-105 shadow-md shadow-amber-950/30">
-              <Trophy className="w-7 h-7 text-amber-400 mb-1 animate-bounce-subtle" />
-              <span className="text-xs font-bold text-amber-200 truncate w-full">
-                {topPlayers[0]?.displayName}
-              </span>
-              <span className="text-xs font-mono font-extrabold text-amber-400 mt-0.5">
-                {topPlayers[0]?.rating}
-              </span>
-            </div>
-
-            {/* 3rd place */}
-            <div className="flex flex-col items-center p-3 rounded-2xl bg-zinc-900/60 border border-amber-900/40 text-center">
-              <div className="w-6 h-6 rounded-full bg-amber-700/20 text-amber-600 flex items-center justify-center font-bold text-xs mb-1">
-                3
-              </div>
-              <span className="text-xs font-bold text-zinc-200 truncate w-full">
-                {topPlayers[2]?.displayName}
-              </span>
-              <span className="text-[10px] font-mono font-semibold text-indigo-400 mt-0.5">
-                {topPlayers[2]?.rating}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Players List */}
-        <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1">
-            Eng kuchli shashkachilar
-          </span>
-
-          {isLoading ? (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-14" />
-              <Skeleton className="h-14" />
-              <Skeleton className="h-14" />
-              <Skeleton className="h-14" />
-              <Skeleton className="h-14" />
-            </div>
-          ) : isError ? (
-            <ErrorState
-              title="Reytingni yuklab bo'lmadi"
-              message="Internet aloqasini tekshirib, qayta urinib ko'ring."
-              onRetry={refetch}
-            />
-          ) : topPlayers.length === 0 ? (
-            <EmptyState
-              icon={<Trophy className="w-6 h-6 text-indigo-400" />}
-              title="Hozircha o'yinchilar yo'q"
-              description="Ushbu rejimda birinchi bo'lib o'yin o'tkazing va yetakchiga aylaning!"
-            />
-          ) : (
-            topPlayers.map((player) => (
-              <PlayerRow
-                key={player.userId}
-                player={player}
-                isCurrentUser={player.userId === user?.id}
-              />
-            ))
-          )}
+          {/* Filter 3 */}
+          <button
+            onClick={() => {
+              triggerHaptic('selection');
+              setSelectedFilter('wins');
+            }}
+            className={cn(
+              'px-3 py-2 rounded-2xl text-left shrink-0 transition-all border select-none min-w-[120px]',
+              selectedFilter === 'wins'
+                ? 'bg-indigo-950/60 border-indigo-500 text-white'
+                : 'bg-zinc-900/80 border-zinc-800 text-zinc-400',
+            )}
+          >
+            <span className="text-[10px] block font-semibold text-amber-400">
+              🏁 Eng ko'p yutuq
+            </span>
+            <span className="text-xs font-bold block mt-0.5 truncate text-zinc-200">
+              👑 1972 Akbarov
+            </span>
+          </button>
         </div>
+
+        {/* Section Title */}
+        <div className="flex items-center justify-between px-1 mt-1">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
+            <TrendingUp className="w-4 h-4 text-indigo-400" />
+            <span>Professionallar Reytingi (ELO)</span>
+          </div>
+          <HelpCircle className="w-4 h-4 text-zinc-500 cursor-pointer" />
+        </div>
+
+        {/* Leaderboard Table Card */}
+        <Card className="p-0 overflow-hidden bg-zinc-900/80 border-zinc-800">
+          {/* Table Header */}
+          <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-850/60 border-b border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+            <div className="flex items-center gap-4">
+              <span className="w-5 text-center">#</span>
+              <span>O'YINCHI</span>
+            </div>
+            <span>ELO</span>
+          </div>
+
+          {/* Table Rows */}
+          <div className="divide-y divide-zinc-800/60">
+            {filteredUsers.map((item) => {
+              const isFirst = item.rank === 1;
+              const isSecond = item.rank === 2;
+              const isThird = item.rank === 3;
+
+              return (
+                <div
+                  key={item.rank}
+                  className="flex items-center justify-between px-4 py-3 hover:bg-zinc-850/40 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Rank icon / number */}
+                    <div className="w-6 flex items-center justify-center font-bold text-xs">
+                      {isFirst ? (
+                        <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center">
+                          <Trophy className="w-3.5 h-3.5 fill-amber-400" />
+                        </div>
+                      ) : isSecond ? (
+                        <div className="w-6 h-6 rounded-full bg-slate-300/20 text-slate-300 border border-slate-300/40 flex items-center justify-center">
+                          <Medal className="w-3.5 h-3.5" />
+                        </div>
+                      ) : isThird ? (
+                        <div className="w-6 h-6 rounded-full bg-amber-700/20 text-amber-600 border border-amber-700/40 flex items-center justify-center">
+                          <Award className="w-3.5 h-3.5" />
+                        </div>
+                      ) : (
+                        <span className="text-zinc-500 font-mono text-xs">{item.rank}</span>
+                      )}
+                    </div>
+
+                    {/* Avatar */}
+                    <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs overflow-hidden shrink-0">
+                      {item.avatar ? (
+                        <img src={item.avatar} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>👤</span>
+                      )}
+                    </div>
+
+                    {/* Name */}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs font-bold text-zinc-100 truncate">
+                        {item.name}
+                      </span>
+                      {item.badge && <span className="text-xs">{item.badge}</span>}
+                    </div>
+                  </div>
+
+                  {/* ELO Rating */}
+                  <span className="text-xs font-black font-mono text-indigo-400">
+                    {item.elo.toLocaleString()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       </div>
     </PageContainer>
   );

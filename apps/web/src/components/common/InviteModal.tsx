@@ -80,13 +80,9 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose }) => 
     }
   };
 
-  const shareWebUrl = gameId
-    ? `${window.location.origin}/#/game/online/${gameId}`
-    : '';
-
-  const shareTgUrl = gameId
-    ? `https://t.me/${BOT_USERNAME}?start=game_${gameId}`
-    : '';
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://shashka-shaxmat.netlify.app';
+  const shareWebUrl = gameId ? `${baseUrl}/?game=${gameId}` : '';
+  const shareTgUrl = gameId ? `https://t.me/${BOT_USERNAME}?startapp=game_${gameId}` : '';
 
   const handleCopy = async () => {
     const urlToCopy = shareTgUrl || shareWebUrl;
@@ -105,10 +101,11 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose }) => 
   const handleShareTelegram = () => {
     triggerHaptic('light');
     const shareText = encodeURIComponent(
-      "Salom! Men bilan rus shashkasi o'yinida kuch sinashmoqchimisiz? Ushbu havolaga bosing:",
+      "Salom! Men bilan rus shashkasi o'yinida kuch sinashmoqchimisiz? Havolaga bosing va o'yin darhol boshlanadi:",
     );
+    const linkToSend = shareTgUrl || shareWebUrl;
     const tgShareUrl = `https://t.me/share/url?url=${encodeURIComponent(
-      shareTgUrl || shareWebUrl,
+      linkToSend,
     )}&text=${shareText}`;
     window.open(tgShareUrl, '_blank');
   };

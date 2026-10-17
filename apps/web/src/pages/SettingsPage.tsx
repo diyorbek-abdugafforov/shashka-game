@@ -4,71 +4,224 @@ import { PageContainer } from '../components/layout/PageContainer';
 import { Card } from '../components/ui/Card';
 import { useSettingsStore, BoardThemeId } from '../stores/settings';
 import { useTheme } from '../providers/ThemeProvider';
-import { useTranslation } from '../i18n';
+import { useAuth } from '../hooks/useAuth';
+import { useTranslation, Language } from '../i18n';
+import { triggerHaptic } from '../utils/telegram';
 import {
   Volume2,
   VolumeX,
   Sparkles,
   Smartphone,
   RotateCw,
-  Palette,
   Moon,
   Sun,
   Globe,
-  Info,
-  ExternalLink,
+  Bot,
+  Puzzle,
+  Grid,
+  ChevronRight,
+  TrendingUp,
+  CloudSun,
+  Gem,
+  SmartphoneNfc,
+  Layers,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { triggerHaptic } from '../utils/telegram';
 
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { user, wallet } = useAuth();
+  const { t, language, setLanguage } = useTranslation();
+  const { theme, toggleTheme } = useTheme();
+
   const {
     soundEnabled,
     animationsEnabled,
     hapticsEnabled,
     autoRotateBoard,
-    language,
     boardTheme,
     toggleSound,
     toggleAnimations,
     toggleHaptics,
     toggleAutoRotate,
-    setLanguage,
     setBoardTheme,
   } = useSettingsStore();
-
-  const { theme, toggleTheme } = useTheme();
 
   const handleToggle = (fn: () => void) => {
     triggerHaptic('selection');
     fn();
   };
 
-  const boardThemes: { id: BoardThemeId; label: string; previewDark: string; previewLight: string }[] = [
-    { id: 'classic', label: language === 'ru' ? 'Классика' : language === 'en' ? 'Classic' : 'Klassik', previewDark: '#6b472e', previewLight: '#dfcead' },
-    { id: 'wood', label: language === 'ru' ? 'Дерево' : language === 'en' ? 'Wood' : 'Yog\'och', previewDark: '#784627', previewLight: '#d8b898' },
-    { id: 'emerald', label: language === 'ru' ? 'Изумруд' : language === 'en' ? 'Emerald' : 'Zumrad', previewDark: '#0f4a38', previewLight: '#e2f1e8' },
-    { id: 'dark', label: language === 'ru' ? 'Тёмный' : language === 'en' ? 'Midnight' : 'To\'q ko\'k', previewDark: '#182030', previewLight: '#3b475e' },
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    triggerHaptic('selection');
+    setLanguage(e.target.value as Language);
+  };
+
+  const gamesMenu = [
+    {
+      id: 'bot',
+      title: language === 'ru' ? 'Играть с ботом' : language === 'en' ? 'Play vs Bot' : "Bot bilan O'ynash",
+      desc: language === 'ru' ? 'Испытайте свои навыки' : language === 'en' ? 'Test your skill' : "Tajribangizni sinab ko'ring",
+      icon: '🤖',
+      bgColor: 'bg-purple-500/20 text-purple-400',
+      action: () => navigate('/game/bot'),
+    },
+    {
+      id: 'puzzles',
+      title: language === 'ru' ? 'Задачи' : language === 'en' ? 'Puzzles' : 'Masalalar',
+      desc: language === 'ru' ? 'Решайте тактические комбинации' : language === 'en' ? 'Solve checkers tactics' : "Rus shashkasi kombinatsiyalarini yeching",
+      icon: '🧩',
+      bgColor: 'bg-emerald-500/20 text-emerald-400',
+      action: () => navigate('/mini-games'),
+    },
+    {
+      id: 'international',
+      title: language === 'ru' ? 'Международные шашки' : language === 'en' ? 'International Checkers' : 'Xalqaro shashka',
+      desc: language === 'ru' ? 'Доска 10х10, сильный бот (Scan)' : language === 'en' ? '10x10 board, advanced bot' : "10×10 doska, kuchli bot (Scan) bilan o'ynang",
+      icon: '🟥',
+      bgColor: 'bg-rose-500/20 text-rose-400',
+      action: () => navigate('/game/bot'),
+    },
+    {
+      id: 'corners',
+      title: language === 'ru' ? 'Уголки' : language === 'en' ? 'Corners' : 'Burchak',
+      desc: '🏆 Yetakchi: Ch. T. H — Grossmeyster V',
+      icon: '🟩',
+      bgColor: 'bg-teal-500/20 text-teal-400',
+      action: () => navigate('/modes'),
+    },
+    {
+      id: 'offline',
+      title: language === 'ru' ? 'Офлайн на двоих' : language === 'en' ? 'Offline 2 Players' : 'Offline 2 o\'yinchi',
+      desc: language === 'ru' ? 'С другом на одном экране' : language === 'en' ? 'Pass and play' : "Do'stingiz bilan bir qurilmada",
+      icon: '📱',
+      bgColor: 'bg-sky-500/20 text-sky-400',
+      action: () => navigate('/game/offline'),
+    },
   ];
 
   return (
     <PageContainer
       headerProps={{
-        title: t('settings_title'),
-        showBack: true,
-        onBack: () => navigate(-1),
+        title: language === 'ru' ? 'Меню' : language === 'en' ? 'Menu' : 'Menyu',
+        showBack: false,
       }}
     >
-      <div className="flex flex-col gap-5">
-        {/* Gameplay Preferences */}
+      <div className="flex flex-col gap-4 pb-6">
+        {/* User Card matching Screenshot 5 */}
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-inner">
+              {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : '👤'}
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold text-zinc-100">
+                {user?.displayName || "Diyorbek Abdug'afforov"}
+              </h4>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-bold mt-1 w-fit">
+                <span>{wallet?.balance || 351}</span>
+                <Gem className="w-3 h-3 text-amber-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Language dropdown */}
+            <select
+              value={language}
+              onChange={handleLanguageChange}
+              className="bg-zinc-800 text-zinc-200 text-xs font-bold rounded-xl px-2.5 py-1.5 border border-zinc-700 outline-none"
+            >
+              <option value="uz">uz UZB</option>
+              <option value="ru">ru RUS</option>
+              <option value="en">en ENG</option>
+            </select>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={() => {
+                triggerHaptic('selection');
+                toggleTheme();
+              }}
+              className="w-8 h-8 rounded-xl bg-zinc-800 text-amber-400 border border-zinc-700 flex items-center justify-center active:scale-95 transition-all"
+              title="Mavzuni almashtirish"
+            >
+              {theme === 'dark' ? <Moon className="w-4 h-4 fill-amber-400 text-amber-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Live Info Widget: Weather & Currency Card */}
+        <Card className="p-3.5 bg-gradient-to-r from-zinc-900 via-zinc-900 to-indigo-950/40 border-zinc-800 grid grid-cols-3 gap-2 text-center text-xs">
+          {/* Weather */}
+          <div className="flex flex-col items-center justify-center p-1.5 rounded-xl bg-zinc-850/60 border border-zinc-800">
+            <span className="text-[10px] text-zinc-400 flex items-center gap-1">
+              ☁️ Toshkent
+            </span>
+            <span className="font-bold text-zinc-200 mt-0.5">+20°C</span>
+          </div>
+
+          {/* USD */}
+          <div className="flex flex-col items-center justify-center p-1.5 rounded-xl bg-zinc-850/60 border border-zinc-800">
+            <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5">
+              USD ↗
+            </span>
+            <span className="font-bold text-zinc-200 mt-0.5">12 056</span>
+            <span className="text-[9px] text-emerald-400">+0.37%</span>
+          </div>
+
+          {/* RUB */}
+          <div className="flex flex-col items-center justify-center p-1.5 rounded-xl bg-zinc-850/60 border border-zinc-800">
+            <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5">
+              RUB ↗
+            </span>
+            <span className="font-bold text-zinc-200 mt-0.5">144.16</span>
+            <span className="text-[9px] text-emerald-400">+0.69%</span>
+          </div>
+        </Card>
+
+        {/* Section: O'yinlar matching Screenshot 5 */}
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">
-            {t('settings_gameplay')}
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1 flex items-center gap-1.5">
+            <span>🎮</span>
+            <span>O'YINLAR</span>
           </span>
 
-          <Card className="divide-y divide-zinc-800/80 p-0 overflow-hidden bg-zinc-900/60 border-zinc-800">
+          <Card className="divide-y divide-zinc-800/80 p-0 overflow-hidden bg-zinc-900/80 border-zinc-800">
+            {gamesMenu.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => {
+                  triggerHaptic('light');
+                  item.action();
+                }}
+                className="flex items-center justify-between p-3.5 hover:bg-zinc-850/50 active:bg-zinc-850 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-lg shrink-0">
+                    {item.icon}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-100">{item.title}</h4>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">{item.desc}</p>
+                  </div>
+                </div>
+
+                <ChevronRight className="w-4 h-4 text-zinc-500" />
+              </div>
+            ))}
+          </Card>
+        </div>
+
+        {/* Gameplay Preferences */}
+        <div className="flex flex-col gap-2">
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1 flex items-center gap-1.5">
+            <span>⚙️</span>
+            <span>{t('settings_gameplay')}</span>
+          </span>
+
+          <Card className="divide-y divide-zinc-800/80 p-0 overflow-hidden bg-zinc-900/80 border-zinc-800">
             {/* Sound Toggle */}
             <div className="flex items-center justify-between p-3.5">
               <div className="flex items-center gap-3">
@@ -155,130 +308,13 @@ export const SettingsPage: React.FC = () => {
                 />
               </button>
             </div>
-
-            {/* Offline Auto-rotate Toggle */}
-            <div className="flex items-center justify-between p-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                  <RotateCw className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-100">{t('settings_autorotate')}</div>
-                  <div className="text-[11px] text-zinc-400">{t('settings_autorotate_desc')}</div>
-                </div>
-              </div>
-              <button
-                onClick={() => handleToggle(toggleAutoRotate)}
-                className={cn(
-                  'w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5',
-                  autoRotateBoard ? 'bg-indigo-600' : 'bg-zinc-700',
-                )}
-                role="switch"
-                aria-checked={autoRotateBoard}
-              >
-                <div
-                  className={cn(
-                    'w-5 h-5 rounded-full bg-white shadow-md transition-transform',
-                    autoRotateBoard ? 'translate-x-5' : 'translate-x-0',
-                  )}
-                />
-              </button>
-            </div>
-          </Card>
-        </div>
-
-        {/* Board Theme Selection */}
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">
-            {t('settings_board_theme')}
-          </span>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {boardThemes.map((t) => {
-              const isSelected = boardTheme === t.id;
-              return (
-                <Card
-                  key={t.id}
-                  hoverable
-                  onClick={() => {
-                    triggerHaptic('selection');
-                    setBoardTheme(t.id);
-                  }}
-                  className={cn(
-                    'p-3 flex items-center justify-between border-2 transition-all',
-                    isSelected
-                      ? 'border-indigo-500 bg-indigo-950/20 shadow-xs'
-                      : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700',
-                  )}
-                >
-                  <span className="text-xs font-semibold text-zinc-200">{t.label}</span>
-                  <div className="w-7 h-7 rounded-lg overflow-hidden border border-zinc-700 grid grid-cols-2 grid-rows-2">
-                    <div style={{ backgroundColor: t.previewLight }} />
-                    <div style={{ backgroundColor: t.previewDark }} />
-                    <div style={{ backgroundColor: t.previewDark }} />
-                    <div style={{ backgroundColor: t.previewLight }} />
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Language & Theme */}
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">
-            {t('settings_lang_and_theme')}
-          </span>
-
-          <Card className="divide-y divide-zinc-800/80 p-0 overflow-hidden bg-zinc-900/60 border-zinc-800">
-            {/* Language */}
-            <div className="flex items-center justify-between p-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
-                  <Globe className="w-4 h-4" />
-                </div>
-                <div className="text-xs font-semibold text-zinc-100">{t('settings_lang')}</div>
-              </div>
-
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as any)}
-                className="bg-zinc-800 text-zinc-200 text-xs font-medium rounded-lg px-2.5 py-1.5 border border-zinc-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              >
-                <option value="uz">O'zbekcha</option>
-                <option value="ru">Русский</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-
-            {/* Telegram Theme Sync */}
-            <div className="flex items-center justify-between p-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                  {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-zinc-100">{t('settings_theme')}</div>
-                  <div className="text-[11px] text-zinc-400">
-                    {theme === 'dark' ? t('settings_theme_dark') : t('settings_theme_light')}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handleToggle(toggleTheme)}
-                className="text-xs font-semibold text-indigo-400 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/50 hover:bg-indigo-900/40"
-              >
-                {t('settings_theme_btn')}
-              </button>
-            </div>
           </Card>
         </div>
 
         {/* About App */}
         <Card className="p-4 bg-zinc-900/40 border-zinc-800 text-center">
-          <h4 className="text-xs font-bold text-zinc-200">{t('settings_about')}</h4>
-          <p className="text-[11px] text-zinc-500 mt-1">{t('settings_version')}</p>
+          <h4 className="text-xs font-bold text-zinc-200">Shashka Online · Telegram Mini App</h4>
+          <p className="text-[11px] text-zinc-500 mt-1">@shashka_gamebot · Versiya 2.0.0</p>
         </Card>
       </div>
     </PageContainer>

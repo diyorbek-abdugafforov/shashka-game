@@ -1,6 +1,10 @@
 import type { ApiResponse } from '@shashka/shared-types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? 'https://shashka-backend.onrender.com/api'
+    : '/api');
 
 export class ApiError extends Error {
   code: string;

@@ -46,7 +46,11 @@ const SocketContext = createContext<SocketContextValue>({
   declineDraw: () => {},
 });
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? 'https://shashka-backend.onrender.com'
+    : 'http://localhost:4000');
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);

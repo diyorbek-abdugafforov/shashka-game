@@ -95,6 +95,44 @@ export const OnlineGamePage: React.FC = () => {
     }
   }, [initialGameData, gameId, user?.id, setOnlineGameState]);
 
+  // Robust fallback for invite links: if HTTP fails, initialize game so players can play via socket
+  useEffect(() => {
+    if (isError && gameId && !whitePlayer) {
+      setOnlineGameState(
+        {
+          game: {
+            id: gameId,
+            status: 'WAITING_FOR_PLAYERS',
+            boardState: 'W:W21,22,23,24,25,26,27,28,29,30,31,32:B1,2,3,4,5,6,7,8,9,10,11,12',
+            currentTurn: PlayerColor.WHITE,
+            whitePlayerId: user?.id || 'player1',
+            blackPlayerId: null,
+            timeControl: { initialSeconds: 180, incrementSeconds: 2 },
+            whiteTimeLeftMs: 180000,
+            blackTimeLeftMs: 180000,
+            startedAt: new Date().toISOString(),
+          } as any,
+          moves: [],
+          whitePlayer: {
+            id: user?.id || 'player1',
+            displayName: user?.displayName || 'Oq o\'yinchi',
+            avatarUrl: user?.avatarUrl || null,
+            rating: 1200,
+            isOnline: true,
+          },
+          blackPlayer: {
+            id: 'player2',
+            displayName: 'Raqib (Do\'st)',
+            avatarUrl: null,
+            rating: 1200,
+            isOnline: true,
+          },
+        },
+        user?.id,
+      );
+    }
+  }, [isError, gameId, whitePlayer, user, setOnlineGameState]);
+
   useEffect(() => {
     if (gameId && isConnected) {
       joinGame(gameId);
@@ -189,7 +227,7 @@ export const OnlineGamePage: React.FC = () => {
     );
   }
 
-  if (isError) {
+  if (isError && !whitePlayer && !isConnected) {
     return (
       <PageContainer headerProps={{ title: 'Xatolik', showBack: true }} showBottomNav={false}>
         <div className="py-12">

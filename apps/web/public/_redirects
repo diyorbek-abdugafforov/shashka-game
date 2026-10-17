@@ -1,1 +1,3 @@
+/api/*  https://shashka-backend.onrender.com/api/:splat  200
+/socket.io/*  https://shashka-backend.onrender.com/socket.io/:splat  200
 /*    /index.html   200

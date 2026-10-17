@@ -36,6 +36,8 @@ const RouteErrorBoundary: React.FC = () => {
   );
 };
 
+import { TournamentsPage } from './pages/TournamentsPage';
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -92,7 +94,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/tournaments',
-    element: <Navigate to="/leaderboard" replace />,
+    element: <TournamentsPage />,
   },
   {
     path: '*',
