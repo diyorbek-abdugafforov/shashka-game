@@ -213,9 +213,10 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
 
         // Fetch opponent display name
         const fromUserRecord = await prisma.user.findUnique({ where: { id: fromUserId } });
+        const fromSocketUser = activeOnlineUsers.get(fromUserId);
+        const toSocketUser = activeOnlineUsers.get(user.id);
 
-        // Notify Player 1 (White)
-        io.to(`user:${fromUserId}`).emit('challenge:matched', {
+        const matchedPayload1 = {
           gameId: game.id,
           color: PlayerColor.WHITE,
           opponent: {
@@ -224,10 +225,9 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
             avatarUrl: user.avatarUrl,
             rating: (user as any).rating || 1200,
           },
-        });
+        };
 
-        // Notify Player 2 (Black)
-        io.to(`user:${user.id}`).emit('challenge:matched', {
+        const matchedPayload2 = {
           gameId: game.id,
           color: PlayerColor.BLACK,
           opponent: {
@@ -236,7 +236,20 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
             avatarUrl: fromUserRecord?.avatarUrl || null,
             rating: fromUserRecord?.rating || 1200,
           },
-        });
+        };
+
+        // Notify Player 1 (White) both via user room and direct socket
+        io.to(`user:${fromUserId}`).emit('challenge:matched', matchedPayload1);
+        if (fromSocketUser?.socketId) {
+          io.to(fromSocketUser.socketId).emit('challenge:matched', matchedPayload1);
+        }
+
+        // Notify Player 2 (Black) both via user room and directly on this socket!
+        io.to(`user:${user.id}`).emit('challenge:matched', matchedPayload2);
+        socket.emit('challenge:matched', matchedPayload2);
+        if (toSocketUser?.socketId && toSocketUser.socketId !== socket.id) {
+          io.to(toSocketUser.socketId).emit('challenge:matched', matchedPayload2);
+        }
       } catch (err: any) {
         fastify.log.error({ err }, 'Failed to accept direct challenge');
         socket.emit('error', { message: 'O\'yinni boshlashda xatolik yuz berdi' });

@@ -216,7 +216,7 @@ export const OnlineGamePage: React.FC = () => {
     socketDeclineDraw(gameId);
   };
 
-  if (isLoading) {
+  if (isLoading && !whitePlayer && !board) {
     return (
       <PageContainer headerProps={{ title: 'O\'yin xonasi' }} showBottomNav={false}>
         <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
