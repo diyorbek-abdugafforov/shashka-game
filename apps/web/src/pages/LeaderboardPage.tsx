@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { PageContainer } from '../components/layout/PageContainer';
 import { Card } from '../components/ui/Card';
 import { useTranslation } from '../i18n';
 import { triggerHaptic } from '../utils/telegram';
+import { leaderboardApi } from '../api/leaderboard';
+import { GameMode, type LeaderboardEntry } from '@shashka/shared-types';
 import {
   Trophy,
   Search,
@@ -23,7 +26,7 @@ interface LeaderboardUser {
   badge?: string;
 }
 
-const LEADERBOARD_USERS: LeaderboardUser[] = [
+const DEFAULT_USERS: LeaderboardUser[] = [
   {
     rank: 1,
     name: 'Shaxrizod Xamidov',
@@ -71,9 +74,35 @@ export const LeaderboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
-  const filteredUsers = LEADERBOARD_USERS.filter((u) =>
+  const { data: leaderboardData, isLoading } = useQuery({
+    queryKey: ['leaderboard-full', selectedFilter],
+    queryFn: () => leaderboardApi.getLeaderboard(GameMode.CLASSIC, 50),
+    staleTime: 15000,
+  });
+
+  // Convert real database entries
+  const dbUsers: LeaderboardUser[] = (leaderboardData?.topPlayers || []).map((entry: LeaderboardEntry, idx: number) => ({
+    rank: entry.rank || idx + 1,
+    name: entry.displayName,
+    elo: entry.rating,
+    avatar: entry.avatarUrl || undefined,
+    badge: entry.rating >= 2000 ? '👑' : entry.rating >= 1500 ? '💎' : undefined,
+  }));
+
+  // Combine database users and default list
+  const combinedUsers = dbUsers.length > 0
+    ? [
+        ...dbUsers,
+        ...DEFAULT_USERS.filter((d) => !dbUsers.some((u) => u.name.toLowerCase() === d.name.toLowerCase()))
+          .map((d, i) => ({ ...d, rank: dbUsers.length + i + 1 })),
+      ]
+    : DEFAULT_USERS;
+
+  const filteredUsers = combinedUsers.filter((u) =>
     u.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const topProPlayer = combinedUsers[0]?.name || 'Shaxrizod Xamidov';
 
   return (
     <PageContainer
@@ -126,7 +155,7 @@ export const LeaderboardPage: React.FC = () => {
               📈 Professional (ELO)
             </span>
             <span className="text-xs font-bold block mt-0.5 truncate text-zinc-200">
-              👑 Shaxrizod Xam...
+              👑 {topProPlayer}
             </span>
           </button>
 

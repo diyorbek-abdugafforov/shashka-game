@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { GameMode } from '@shashka/shared-types';
+import { GameMode, type LeaderboardEntry } from '@shashka/shared-types';
 import { PageContainer } from '../components/layout/PageContainer';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -9,6 +9,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { InviteModal } from '../components/common/InviteModal';
 import { useAuth } from '../hooks/useAuth';
 import { usersApi } from '../api/users';
+import { leaderboardApi } from '../api/leaderboard';
 import { gamesApi } from '../api/games';
 import { triggerHaptic } from '../utils/telegram';
 import { useTranslation } from '../i18n';
@@ -61,11 +62,18 @@ export const HomePage: React.FC = () => {
     staleTime: 60000,
   });
 
-  const currentRating = stats?.currentRating ?? 800;
-  const userDiamonds = wallet?.balance ?? 351;
+  // Query real users from Neon database
+  const { data: leaderboardData } = useQuery({
+    queryKey: ['home-leaderboard-players'],
+    queryFn: () => leaderboardApi.getLeaderboard(GameMode.CLASSIC, 20),
+    staleTime: 20000,
+  });
 
-  // Online Players Pool
-  const onlinePlayers: OnlinePlayer[] = [
+  const currentRating = stats?.currentRating ?? (user ? (user as any).rating || 1200 : 1200);
+  const userDiamonds = wallet?.balance ?? 100;
+
+  // Fallback demo players pool
+  const mockPlayers: OnlinePlayer[] = [
     {
       id: 'p1',
       name: 'Жалолиддин Ахмадалиев 🥊',
@@ -76,7 +84,7 @@ export const HomePage: React.FC = () => {
     {
       id: 'p2',
       name: '😎😎😎😎😎😎😎',
-      elo: 1923,
+      elo: 1850,
       diamonds: 335,
     },
     {
@@ -104,6 +112,27 @@ export const HomePage: React.FC = () => {
       isPremium: true,
     },
   ];
+
+  // Convert DB players to online players
+  const dbPlayers: OnlinePlayer[] = (leaderboardData?.topPlayers || [])
+    .filter((entry: LeaderboardEntry) => entry.userId !== user?.id)
+    .map((entry: LeaderboardEntry) => ({
+      id: entry.userId,
+      name: entry.displayName || 'O\'yinchi',
+      elo: entry.rating || 1200,
+      diamonds: 100,
+      stars: Math.max(1, Math.floor((entry.rating || 1200) / 300)),
+      avatarUrl: entry.avatarUrl,
+      isPremium: (entry.rating || 1200) >= 1500,
+    }));
+
+  // Combine DB players first, then fallback mock players
+  const onlinePlayers: OnlinePlayer[] = [
+    ...dbPlayers,
+    ...mockPlayers.filter((p) => !dbPlayers.some((dp) => dp.name.toLowerCase() === p.name.toLowerCase())),
+  ];
+
+  const topMarqueeUser = leaderboardData?.topPlayers?.[0];
 
   const handleChallenge = (player: OnlinePlayer) => {
     triggerHaptic('medium');
@@ -139,7 +168,7 @@ export const HomePage: React.FC = () => {
           </span>
           <span className="text-zinc-500">·</span>
           <div className="flex-1 truncate text-zinc-300 font-medium">
-            💪 1972 Акбаров Ҳаса... Eng ko'p g'alaba
+            💪 {topMarqueeUser ? `${topMarqueeUser.rating} ${topMarqueeUser.displayName}` : "1972 Акбаров Ҳасан"} · Eng ko'p g'alaba
           </div>
         </div>
 
