@@ -4,6 +4,7 @@ import { InvitationHandler } from './invitation.js';
 import { handleStatsCommand } from '../commands/stats.js';
 import { handleSettingsCommand } from '../commands/settings.js';
 import { handleHelpCommand } from '../commands/help.js';
+import { handleAdminCommand } from '../commands/admin.js';
 import { UserService } from '../services/user.service.js';
 import { getStartKeyboard } from '../utils/keyboard.js';
 import { getBotConfig } from '../config.js';
@@ -123,6 +124,24 @@ export async function handleCallbackQueries(ctx: BotContext): Promise<void> {
     if (data === 'cmd:help') {
       await ctx.answerCallbackQuery();
       await handleHelpCommand(ctx);
+      return;
+    }
+
+    if (data === 'admin:refresh_stats') {
+      await ctx.answerCallbackQuery({ text: 'Yangilanmoqda...' });
+      await handleAdminCommand(ctx);
+      return;
+    }
+
+    if (data === 'admin:help_broadcast') {
+      await ctx.answerCallbackQuery();
+      await ctx.reply(
+        "📢 *Ommaviy xabar yuborish (Broadcast):*\n\n" +
+        "Barcha o‘yinchilarga e'lon yoki yangilik yuborish uchun quyidagicha yozing:\n\n" +
+        "`/broadcast Assalomu alaykum! Yangi shashka turniri boshlandi!`\n\n" +
+        "_Xabar barcha bot a'zolariga avtomatik yetkaziladi._",
+        { parse_mode: 'Markdown' },
+      );
       return;
     }
 

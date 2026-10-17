@@ -15,6 +15,12 @@ import { handleHelpCommand } from './commands/help.js';
 import { handleSettingsCommand } from './commands/settings.js';
 import { handleStatsCommand } from './commands/stats.js';
 import { handleBroadcastCommand } from './commands/broadcast.js';
+import {
+  handleAdminCommand,
+  handleGiveCoinsCommand,
+  handleBanCommand,
+  handleUnbanCommand,
+} from './commands/admin.js';
 import { handleCallbackQueries } from './handlers/callbacks.js';
 
 export function initialSession(): BotSession {
@@ -86,6 +92,10 @@ export function createBot(): { bot: Bot<BotContext>; redisClient: RedisClient | 
   bot.command('settings', handleSettingsCommand);
   bot.command('stats', handleStatsCommand);
   bot.command('broadcast', handleBroadcastCommand);
+  bot.command('admin', handleAdminCommand);
+  bot.command('givecoins', handleGiveCoinsCommand);
+  bot.command('ban', handleBanCommand);
+  bot.command('unban', handleUnbanCommand);
 
   bot.command(['minigames', 'mini_games'], async (ctx) => {
     const config = getBotConfig();
