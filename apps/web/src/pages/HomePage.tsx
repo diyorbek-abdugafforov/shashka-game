@@ -51,8 +51,15 @@ export const HomePage: React.FC = () => {
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{ sender: string; text: string; time: string }>>([
-    { sender: 'Shashka Bot', text: "Xush kelibsiz! Raqiblarni tanlang va o'yinga chorlang.", time: '18:00' },
-    { sender: 'Жалолиддин', text: "Kim klassik shashka o'ynaydi? Taklif tashlang!", time: '18:02' },
+    {
+      sender: 'Shashka Bot',
+      text: language === 'ru'
+        ? "Добро пожаловать в Shashka Online! Выберите соперника или отправьте вызов другу."
+        : language === 'en'
+          ? "Welcome to Shashka Online! Choose an opponent or send an invite to a friend."
+          : "Shashka Online ga xush kelibsiz! Ro'yxatdan raqib tanlang yoki do'stingizga taklif yuboring.",
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    },
   ]);
 
   const { data: stats } = useQuery({
@@ -63,58 +70,17 @@ export const HomePage: React.FC = () => {
   });
 
   // Query real users from Neon database
-  const { data: leaderboardData } = useQuery({
+  const { data: leaderboardData, isLoading: isPlayersLoading } = useQuery({
     queryKey: ['home-leaderboard-players'],
     queryFn: () => leaderboardApi.getLeaderboard(GameMode.CLASSIC, 20),
-    staleTime: 20000,
+    staleTime: 15000,
   });
 
   const currentRating = stats?.currentRating ?? (user ? (user as any).rating || 1200 : 1200);
   const userDiamonds = wallet?.balance ?? 100;
 
-  // Fallback demo players pool
-  const mockPlayers: OnlinePlayer[] = [
-    {
-      id: 'p1',
-      name: 'Жалолиддин Ахмадалиев 🥊',
-      elo: 1923,
-      diamonds: 61619,
-      stars: 9,
-    },
-    {
-      id: 'p2',
-      name: '😎😎😎😎😎😎😎',
-      elo: 1850,
-      diamonds: 335,
-    },
-    {
-      id: 'p3',
-      name: 'BARCA 💪💪💪💪',
-      elo: 1723,
-      diamonds: 782,
-      stars: 7,
-      isPremium: true,
-      avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&h=100&fit=crop&crop=faces',
-    },
-    {
-      id: 'p4',
-      name: 'Sherzodbek (Samarqand)',
-      elo: 1640,
-      diamonds: 450,
-      stars: 3,
-    },
-    {
-      id: 'p5',
-      name: 'Shohjahon Masters',
-      elo: 2100,
-      diamonds: 1420,
-      stars: 12,
-      isPremium: true,
-    },
-  ];
-
-  // Convert DB players to online players
-  const dbPlayers: OnlinePlayer[] = (leaderboardData?.topPlayers || [])
+  // Real database players ONLY (bez baza chiqayotgan soxta odamlar yo'q)
+  const onlinePlayers: OnlinePlayer[] = (leaderboardData?.topPlayers || [])
     .filter((entry: LeaderboardEntry) => entry.userId !== user?.id)
     .map((entry: LeaderboardEntry) => ({
       id: entry.userId,
@@ -125,12 +91,6 @@ export const HomePage: React.FC = () => {
       avatarUrl: entry.avatarUrl,
       isPremium: (entry.rating || 1200) >= 1500,
     }));
-
-  // Combine DB players first, then fallback mock players
-  const onlinePlayers: OnlinePlayer[] = [
-    ...dbPlayers,
-    ...mockPlayers.filter((p) => !dbPlayers.some((dp) => dp.name.toLowerCase() === p.name.toLowerCase())),
-  ];
 
   const topMarqueeUser = leaderboardData?.topPlayers?.[0];
 
@@ -168,7 +128,7 @@ export const HomePage: React.FC = () => {
           </span>
           <span className="text-zinc-500">·</span>
           <div className="flex-1 truncate text-zinc-300 font-medium">
-            💪 {topMarqueeUser ? `${topMarqueeUser.rating} ${topMarqueeUser.displayName}` : "1972 Акбаров Ҳасан"} · Eng ko'p g'alaba
+            💪 {topMarqueeUser ? `${topMarqueeUser.rating} ${topMarqueeUser.displayName}` : `${user?.displayName || "O'yinchi"} (1200)`} · Eng yuqori reyting
           </div>
         </div>
 
@@ -218,10 +178,10 @@ export const HomePage: React.FC = () => {
               </h3>
               <div className="flex items-center gap-1.5 mt-2">
                 <span className="px-2 py-0.5 rounded-full bg-white/20 text-[9px] font-black tracking-wider uppercase">
-                  NAVOIY
+                  TOP MATCH
                 </span>
                 <span className="flex items-center gap-0.5 text-[10px] text-rose-300 font-bold">
-                  <Heart className="w-3 h-3 fill-rose-400 text-rose-400" /> 35
+                  <Heart className="w-3 h-3 fill-rose-400 text-rose-400" /> 12
                 </span>
               </div>
             </div>
@@ -293,7 +253,7 @@ export const HomePage: React.FC = () => {
               {language === 'ru' ? 'Все онлайн' : language === 'en' ? 'All Online' : 'Barcha onlinelar'}
             </span>
             <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
-              99
+              {onlinePlayers.length + (user ? 1 : 0)}
             </span>
           </button>
 
@@ -314,97 +274,195 @@ export const HomePage: React.FC = () => {
               {language === 'ru' ? 'Друзья' : language === 'en' ? 'Friends' : "Do'stlar"}
             </span>
             <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
-              4
+              0
             </span>
           </button>
         </div>
 
-        {/* Players List */}
-        <div className="flex flex-col gap-2 mt-1">
-          {/* Item 1: CURRENT USER */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/90 border border-indigo-900/50 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-inner">
-                {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : 'D'}
-              </div>
-
-              <div>
-                <h4 className="text-xs font-bold text-zinc-100">
-                  {user?.displayName || "Diyorbek Abdug'afforov"}
-                </h4>
-                <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
-                  <span className="font-semibold text-zinc-300">ELO {currentRating}?</span>
-                  <span>|</span>
-                  <span className="flex items-center gap-1 text-sky-400 font-semibold">
-                    <Gem className="w-3 h-3 text-sky-400" />
-                    {userDiamonds}
-                  </span>
-                </div>
-              </div>
+        {/* Players List or Friends Section */}
+        {activeTab === 'friends' ? (
+          <div className="p-6 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 text-center flex flex-col items-center justify-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <Users className="w-6 h-6" />
             </div>
-
-            <span className="text-xs italic text-zinc-500 font-medium pr-1">
-              {language === 'ru' ? 'Это вы' : language === 'en' ? 'It is you' : 'Bu siz'}
-            </span>
-          </div>
-
-          {/* ONLINE PLAYERS LIST */}
-          {onlinePlayers.map((player) => (
-            <div
-              key={player.id}
-              className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors"
+            <div>
+              <h4 className="text-xs font-bold text-zinc-100">
+                {language === 'ru' ? 'У вас пока нет друзей' : language === 'en' ? 'No friends yet' : "Do'stlaringiz hali yo'q"}
+              </h4>
+              <p className="text-[11px] text-zinc-400 mt-1 max-w-[240px]">
+                {language === 'ru'
+                  ? 'Отправьте ссылку-приглашение друзьям, чтобы играть вместе в реальном времени!'
+                  : language === 'en'
+                    ? 'Send an invite link to your friends to play together in real-time!'
+                    : "Do'stlaringizga havola yuboring va birgalikda shashka o'ynang!"}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                triggerHaptic('medium');
+                setIsInviteOpen(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-950/40 active:scale-95 flex items-center gap-1.5"
             >
+              <Users className="w-3.5 h-3.5" />
+              <span>{language === 'ru' ? 'Пригласить друга' : language === 'en' ? 'Invite Friend' : "Do'stni taklif qilish"}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 mt-1">
+            {/* Item 1: CURRENT USER */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-zinc-900/90 to-zinc-900/90 border border-indigo-500/30 shadow-xs">
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  {player.avatarUrl ? (
-                    <img
-                      src={player.avatarUrl}
-                      alt={player.name}
-                      className="w-11 h-11 rounded-full object-cover ring-2 ring-indigo-500/30"
-                    />
-                  ) : (
-                    <div className="w-11 h-11 rounded-full bg-blue-800 text-white flex items-center justify-center font-bold text-base">
-                      👤
-                    </div>
-                  )}
-                  {player.isPremium && (
-                    <span className="absolute -bottom-1 -right-1 px-1 py-0.2 rounded-md bg-amber-500 text-black font-black text-[7px] uppercase tracking-tighter">
-                      PRO
-                    </span>
-                  )}
+                <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-inner">
+                  {user?.displayName ? user.displayName.slice(0, 1).toUpperCase() : 'D'}
                 </div>
 
                 <div>
-                  <h4 className="text-xs font-bold text-zinc-100">{player.name}</h4>
+                  <h4 className="text-xs font-bold text-zinc-100">
+                    {user?.displayName || "Diyorbek Abdug'afforov"}
+                  </h4>
                   <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
-                    <span className="font-semibold text-zinc-300">ELO {player.elo}</span>
+                    <span className="font-semibold text-zinc-300">ELO {currentRating}</span>
                     <span>|</span>
                     <span className="flex items-center gap-1 text-sky-400 font-semibold">
                       <Gem className="w-3 h-3 text-sky-400" />
-                      {player.diamonds}
+                      {userDiamonds}
                     </span>
-                    {player.stars && (
-                      <>
-                        <span>|</span>
-                        <span className="flex items-center gap-0.5 text-amber-400 font-bold">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          {player.stars}
-                        </span>
-                      </>
-                    )}
                   </div>
                 </div>
               </div>
 
-              <button
-                onClick={() => handleChallenge(player)}
-                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-[11px] transition-all shadow-md shadow-indigo-950/40 shrink-0"
-              >
-                {language === 'ru' ? 'Вызов' : language === 'en' ? 'Challenge' : "O'yinga taklif"}
-              </button>
+              <span className="text-xs italic text-indigo-400 font-medium pr-1">
+                {language === 'ru' ? 'Это вы' : language === 'en' ? 'It is you' : 'Bu siz'}
+              </span>
             </div>
-          ))}
-        </div>
+
+            {/* SKELETON LOADING STATE */}
+            {isPlayersLoading && (
+              <div className="flex flex-col gap-2">
+                {[1, 2].map((n) => (
+                  <div key={n} className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/40 border border-zinc-800/50 animate-pulse">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-full bg-zinc-800" />
+                      <div className="flex flex-col gap-1.5">
+                        <div className="w-24 h-3 bg-zinc-800 rounded" />
+                        <div className="w-16 h-2.5 bg-zinc-800/60 rounded" />
+                      </div>
+                    </div>
+                    <div className="w-20 h-7 bg-zinc-800 rounded-xl" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* EMPTY STATE IF NO OTHER DB PLAYERS */}
+            {!isPlayersLoading && onlinePlayers.length === 0 && (
+              <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 text-center flex flex-col items-center justify-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-100">
+                    {language === 'ru' ? 'Другие игроки офлайн' : language === 'en' ? 'Other players offline' : "Boshqa o'yinchilar hozircha oflayn"}
+                  </h4>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">
+                    {language === 'ru' ? 'Пригласите друга по ссылке, чтобы сыграть прямо сейчас!' : "Do'stingizni taklif qiling va darhol birgalikda o'ynang!"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    triggerHaptic('medium');
+                    setIsInviteOpen(true);
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-950/40 active:scale-95"
+                >
+                  {language === 'ru' ? 'Пригласить друга' : "Do'stni taklif qilish"}
+                </button>
+              </div>
+            )}
+
+            {/* REAL DATABASE PLAYERS LIST ONLY */}
+            {onlinePlayers.map((player) => (
+              <div
+                key={player.id}
+                className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    {player.avatarUrl ? (
+                      <img
+                        src={player.avatarUrl}
+                        alt={player.name}
+                        className="w-11 h-11 rounded-full object-cover ring-2 ring-indigo-500/30"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-full bg-blue-800 text-white flex items-center justify-center font-bold text-base">
+                        {player.name.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    {player.isPremium && (
+                      <span className="absolute -bottom-1 -right-1 px-1 py-0.2 rounded-md bg-amber-500 text-black font-black text-[7px] uppercase tracking-tighter">
+                        PRO
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-100">{player.name}</h4>
+                    <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
+                      <span className="font-semibold text-zinc-300">ELO {player.elo}</span>
+                      <span>|</span>
+                      <span className="flex items-center gap-1 text-sky-400 font-semibold">
+                        <Gem className="w-3 h-3 text-sky-400" />
+                        {player.diamonds}
+                      </span>
+                      {player.stars && (
+                        <>
+                          <span>|</span>
+                          <span className="flex items-center gap-0.5 text-amber-400 font-bold">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            {player.stars}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleChallenge(player)}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-[11px] transition-all shadow-md shadow-indigo-950/40 shrink-0"
+                >
+                  {language === 'ru' ? 'Вызов' : language === 'en' ? 'Challenge' : "O'yinga taklif"}
+                </button>
+              </div>
+            ))}
+
+            {/* Modern Bottom Invite Card */}
+            <div
+              onClick={() => {
+                triggerHaptic('medium');
+                setIsInviteOpen(true);
+              }}
+              className="p-3 rounded-2xl bg-gradient-to-r from-indigo-950/20 via-zinc-900/60 to-zinc-900/60 border border-dashed border-indigo-500/30 text-zinc-300 flex items-center justify-between cursor-pointer hover:border-indigo-500/60 transition-colors mt-1"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-bold text-zinc-200">
+                    {language === 'ru' ? 'Пригласить друзей' : "Do'stlarni o'yinga chorlash"}
+                  </h5>
+                  <p className="text-[10px] text-zinc-400">
+                    {language === 'ru' ? 'Отправьте ссылку в Telegram и играйте вместе' : "Havola yuboring va darhol birgalikda o'ynang"}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-500" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Floating Chat Button */}

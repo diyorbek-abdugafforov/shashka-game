@@ -26,48 +26,6 @@ interface LeaderboardUser {
   badge?: string;
 }
 
-const DEFAULT_USERS: LeaderboardUser[] = [
-  {
-    rank: 1,
-    name: 'Shaxrizod Xamidov',
-    elo: 2500,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-  },
-  {
-    rank: 2,
-    name: 'Islam ت',
-    elo: 2500,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
-  },
-  {
-    rank: 3,
-    name: 'NAVOIY',
-    badge: '💎',
-    elo: 2500,
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces',
-  },
-  {
-    rank: 4,
-    name: 'FAYZULLO',
-    elo: 2500,
-  },
-  {
-    rank: 5,
-    name: 'Oysha',
-    elo: 2500,
-  },
-  {
-    rank: 6,
-    name: 'Bekzod Aliyev',
-    elo: 2480,
-  },
-  {
-    rank: 7,
-    name: 'Jasurbek Grandmaster',
-    elo: 2465,
-  },
-];
-
 export const LeaderboardPage: React.FC = () => {
   const { t, language } = useTranslation();
   const [selectedFilter, setSelectedFilter] = useState<'pro' | 'puzzles' | 'wins'>('pro');
@@ -80,7 +38,7 @@ export const LeaderboardPage: React.FC = () => {
     staleTime: 15000,
   });
 
-  // Convert real database entries
+  // Convert real database entries ONLY (bez baza hech qanday soxta odamlar yo'q)
   const dbUsers: LeaderboardUser[] = (leaderboardData?.topPlayers || []).map((entry: LeaderboardEntry, idx: number) => ({
     rank: entry.rank || idx + 1,
     name: entry.displayName,
@@ -89,20 +47,11 @@ export const LeaderboardPage: React.FC = () => {
     badge: entry.rating >= 2000 ? '👑' : entry.rating >= 1500 ? '💎' : undefined,
   }));
 
-  // Combine database users and default list
-  const combinedUsers = dbUsers.length > 0
-    ? [
-        ...dbUsers,
-        ...DEFAULT_USERS.filter((d) => !dbUsers.some((u) => u.name.toLowerCase() === d.name.toLowerCase()))
-          .map((d, i) => ({ ...d, rank: dbUsers.length + i + 1 })),
-      ]
-    : DEFAULT_USERS;
-
-  const filteredUsers = combinedUsers.filter((u) =>
+  const filteredUsers = dbUsers.filter((u) =>
     u.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const topProPlayer = combinedUsers[0]?.name || 'Shaxrizod Xamidov';
+  const topProPlayer = dbUsers[0]?.name || (language === 'ru' ? 'Лидер' : 'Yetakchi');
 
   return (
     <PageContainer
@@ -176,7 +125,7 @@ export const LeaderboardPage: React.FC = () => {
               🧩 Masalalar
             </span>
             <span className="text-xs font-bold block mt-0.5 truncate text-zinc-200">
-              👑 David Laid
+              👑 {language === 'ru' ? 'Скоро' : 'Tez kunda'}
             </span>
           </button>
 
@@ -197,7 +146,7 @@ export const LeaderboardPage: React.FC = () => {
               🏁 Eng ko'p yutuq
             </span>
             <span className="text-xs font-bold block mt-0.5 truncate text-zinc-200">
-              👑 1972 Akbarov
+              👑 {topProPlayer}
             </span>
           </button>
         </div>
@@ -222,9 +171,34 @@ export const LeaderboardPage: React.FC = () => {
             <span>ELO</span>
           </div>
 
-          {/* Table Rows */}
+          {/* Table Rows or Loading/Empty state */}
           <div className="divide-y divide-zinc-800/60">
-            {filteredUsers.map((item) => {
+            {isLoading && (
+              <div className="p-8 flex flex-col items-center justify-center gap-2">
+                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-zinc-400 font-medium">
+                  {language === 'ru' ? 'Загрузка лидеров...' : "Reyting yuklanmoqda..."}
+                </span>
+              </div>
+            )}
+
+            {!isLoading && filteredUsers.length === 0 && (
+              <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+                <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-zinc-400">
+                  <Trophy className="w-6 h-6" />
+                </div>
+                <h4 className="text-xs font-bold text-zinc-200">
+                  {language === 'ru' ? 'Игроков пока нет' : language === 'en' ? 'No players found' : "Hozircha o'yinchilar topilmadi"}
+                </h4>
+                <p className="text-[11px] text-zinc-400 max-w-[240px]">
+                  {language === 'ru'
+                    ? 'Сыграйте партию и станьте первым в рейтинге!'
+                    : "O'yin o'ynang va reyting jadvalida birinchi o'rinni egallang!"}
+                </p>
+              </div>
+            )}
+
+            {!isLoading && filteredUsers.map((item) => {
               const isFirst = item.rank === 1;
               const isSecond = item.rank === 2;
               const isThird = item.rank === 3;
@@ -259,7 +233,7 @@ export const LeaderboardPage: React.FC = () => {
                       {item.avatar ? (
                         <img src={item.avatar} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
-                        <span>👤</span>
+                        <span>{item.name.slice(0, 1).toUpperCase()}</span>
                       )}
                     </div>
 
