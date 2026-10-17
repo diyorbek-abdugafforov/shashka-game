@@ -13,11 +13,11 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        sync: false
+        value: "postgresql://neondb_owner:npg_GfwoOztS26di@ep-lingering-lake-b4jgtvn6-pooler.c-6.us-east-2.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
       - key: DATABASE_URL_UNPOOLED
-        sync: false
+        value: "postgresql://neondb_owner:npg_GfwoOztS26di@ep-lingering-lake-b4jgtvn6.c-6.us-east-2.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
+        value: 8587302791:AAGKLkSf8LQ9nRF5wPPx8xn_Ao-SweGRwE0
       - key: TELEGRAM_BOT_USERNAME
         value: wikipediyauzrobot
       - key: WEB_URL
