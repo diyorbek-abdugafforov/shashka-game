@@ -3,7 +3,7 @@ services:
     name: shashka-backend
     env: node
     plan: free
-    region: frankfurt
+    region: ohio
     buildCommand: pnpm install && pnpm db:generate && pnpm build
     startCommand: pnpm start:render
     healthCheckPath: /health
