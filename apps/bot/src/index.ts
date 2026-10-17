@@ -101,6 +101,9 @@ async function bootstrap() {
           `🤖 Telegram Bot @${botInfo.username} started successfully with long polling`,
         );
       },
+    }).catch((err) => {
+      logger.error({ err }, 'Telegram bot polling error occurred');
+      process.exit(1);
     });
   }
 }

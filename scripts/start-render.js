@@ -60,6 +60,17 @@ function startBot() {
   });
 }
 
+// 3. Keep-alive self-ping to prevent Render Free Tier from sleeping
+const PING_INTERVAL_MS = 8 * 60 * 1000; // 8 minutes
+function keepAlive() {
+  const url = 'https://shashka-backend.onrender.com/health';
+  fetch(url)
+    .then((res) => console.log(`[Render Runner] Keep-alive ping sent to ${url} (status: ${res.status})`))
+    .catch((err) => console.warn(`[Render Runner] Keep-alive ping failed: ${err.message}`));
+}
+setInterval(keepAlive, PING_INTERVAL_MS);
+setTimeout(keepAlive, 20 * 1000);
+
 function shutdown() {
   isShuttingDown = true;
   console.log('[Render Runner] Graceful shutdown initiated...');
