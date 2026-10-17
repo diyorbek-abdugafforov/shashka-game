@@ -5,6 +5,7 @@ export function getStartKeyboard(lang: SupportedLanguage, webAppUrl: string): In
   const isHttps = webAppUrl.startsWith('https://');
   const isPublicUrl = !webAppUrl.includes('localhost') && !webAppUrl.includes('127.0.0.1');
   const shopUrl = `${webAppUrl.replace(/\/$/, '')}/shop`;
+  const miniGamesUrl = `${webAppUrl.replace(/\/$/, '')}/mini-games`;
 
   const kb = new InlineKeyboard();
 
@@ -16,7 +17,13 @@ export function getStartKeyboard(lang: SupportedLanguage, webAppUrl: string): In
     kb.text(t(lang, 'btn_play'), 'action:open_play_info');
   }
 
-  kb.row().text(t(lang, 'btn_mini_games'), 'action:mini_games');
+  if (isHttps) {
+    kb.row().webApp(t(lang, 'btn_mini_games'), miniGamesUrl);
+  } else if (isPublicUrl) {
+    kb.row().url(t(lang, 'btn_mini_games'), miniGamesUrl);
+  } else {
+    kb.row().text(t(lang, 'btn_mini_games'), 'action:mini_games');
+  }
 
   if (isHttps) {
     kb.webApp(t(lang, 'btn_shop'), shopUrl);

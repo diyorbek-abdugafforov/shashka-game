@@ -259,6 +259,40 @@ export class UserService {
   }
 
   /**
+   * Add coins to user wallet for mini games or daily bonuses
+   */
+  static async addCoins(userId: string, amount: number, description: string): Promise<number> {
+    try {
+      const wallet = await prisma.wallet.upsert({
+        where: { userId },
+        update: {
+          balance: { increment: amount },
+        },
+        create: {
+          userId,
+          balance: amount,
+        },
+      });
+
+      await prisma.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          type: WalletTransactionType.DAILY_REWARD,
+          amount,
+          balanceAfter: wallet.balance,
+          description,
+          referenceType: 'MINI_GAME',
+        },
+      });
+
+      return wallet.balance;
+    } catch (err) {
+      logger.error({ err, userId }, 'Failed to credit coins to user wallet');
+      return 0;
+    }
+  }
+
+  /**
    * Get user gameplay statistics and referral link
    */
   static async getUserStats(userId: string): Promise<UserStatsResult> {

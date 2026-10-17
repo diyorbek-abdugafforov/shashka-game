@@ -25,6 +25,8 @@ import {
   Flame,
   ArrowRight,
   Sparkles,
+  ShoppingBag,
+  Dices,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
@@ -238,6 +240,47 @@ export const HomePage: React.FC = () => {
               <ArrowRight className="w-4 h-4 text-zinc-500" />
             </div>
           </Card>
+
+          {/* Shop & Mini Games 2-column shortcuts */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <Card
+              hoverable
+              onClick={() => {
+                triggerHaptic('light');
+                navigate('/shop');
+              }}
+              className="p-3.5 bg-gradient-to-br from-amber-950/30 via-zinc-900 to-zinc-900 border-amber-800/40 hover:border-amber-600/60 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-100">Do'kon</h4>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">Doska va toshlar</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card
+              hoverable
+              onClick={() => {
+                triggerHaptic('light');
+                navigate('/mini-games');
+              }}
+              className="p-3.5 bg-gradient-to-br from-fuchsia-950/30 via-zinc-900 to-zinc-900 border-fuchsia-800/40 hover:border-fuchsia-600/60 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30 flex items-center justify-center shrink-0">
+                  <Dices className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-100">Mini o'yinlar</h4>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">Bonus & Jumboq</p>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
 
         {/* Recent Games Section */}

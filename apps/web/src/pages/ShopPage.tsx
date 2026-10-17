@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ShopItemCategory, ShopItemModel } from '@shashka/shared-types';
@@ -10,25 +10,52 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { ErrorState } from '../components/ui/ErrorState';
 import { shopApi } from '../api/shop';
 import { useAuth } from '../hooks/useAuth';
+import { useAuthStore } from '../stores/auth';
+import { useSettingsStore, BoardThemeId } from '../stores/settings';
 import { formatNumber } from '../utils/format';
 import { triggerHaptic } from '../utils/telegram';
+import { playCoinSound, playClickSound } from '../utils/sound';
 import {
-  ShoppingBag,
   Coins,
   Palette,
   CircleDot,
   Crown,
   Sparkles,
-  Lock,
+  Check,
+  Gamepad2,
+  Gift,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
+
+const OWNED_STORAGE_KEY = 'shashka_owned_items_v1';
 
 export const ShopPage: React.FC = () => {
   const navigate = useNavigate();
   const { wallet } = useAuth();
+  const { updateBalance } = useAuthStore();
+  const { boardTheme, setBoardTheme } = useSettingsStore();
+
   const [selectedCategory, setSelectedCategory] = useState<ShopItemCategory>(
     ShopItemCategory.BOARD_THEME,
   );
+
+  const [ownedItems, setOwnedItems] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(OWNED_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : ['classic', 'piece-classic'];
+    } catch {
+      return ['classic', 'piece-classic'];
+    }
+  });
+
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const saveOwnedItems = (newItems: string[]) => {
+    setOwnedItems(newItems);
+    try {
+      localStorage.setItem(OWNED_STORAGE_KEY, JSON.stringify(newItems));
+    } catch {}
+  };
 
   const { data: items, isLoading, isError, refetch } = useQuery({
     queryKey: ['shop-items'],
@@ -39,7 +66,7 @@ export const ShopPage: React.FC = () => {
   const fallbackItems: ShopItemModel[] = [
     {
       id: 'board-royal',
-      name: 'Qirollik Yog\'ochi',
+      name: "Qirollik Yog'ochi",
       description: 'Noyob eman daraxtidan yasalgan oliy darajali shashka doskasi',
       category: ShopItemCategory.BOARD_THEME,
       price: 1500,
@@ -62,7 +89,7 @@ export const ShopPage: React.FC = () => {
     {
       id: 'board-midnight',
       name: 'Yarim Tun (Cyber)',
-      description: 'Futuristik neon chiziqlari bilan bezatilgan to\'q mavzu',
+      description: "Futuristik neon chiziqlari bilan bezatilgan to'q mavzu",
       category: ShopItemCategory.BOARD_THEME,
       price: 3000,
       imageUrl: '',
@@ -72,8 +99,8 @@ export const ShopPage: React.FC = () => {
     },
     {
       id: 'piece-gold-marble',
-      name: 'Oltin Marmar Toshlar',
-      description: 'Zarhallangan qirrali va oltin tojli eksklyuziv toshlar to\'plami',
+      name: 'Oltin Toshlar',
+      description: "Zarhallangan qirrali va oltin tojli toshlar to'plami",
       category: ShopItemCategory.PIECE_SKIN,
       price: 2000,
       imageUrl: '',
@@ -84,7 +111,7 @@ export const ShopPage: React.FC = () => {
     {
       id: 'piece-obsidian',
       name: 'Obsidian & Marvarid',
-      description: 'Vulkanik qora tosh va oq marvarid ko\'rinishidagi toshlar',
+      description: "Vulkanik qora tosh va oq marvarid ko'rinishidagi toshlar",
       category: ShopItemCategory.PIECE_SKIN,
       price: 3500,
       imageUrl: '',
@@ -97,7 +124,7 @@ export const ShopPage: React.FC = () => {
       name: 'Grossmeyster Ramkasi',
       description: 'Profil avataringiz uchun oltin dafna barglari ramkasi',
       category: ShopItemCategory.AVATAR_FRAME,
-      price: 5000,
+      price: 4500,
       imageUrl: '',
       isActive: true,
       metadata: {},
@@ -109,28 +136,78 @@ export const ShopPage: React.FC = () => {
     (item) => item.category === selectedCategory,
   );
 
+  const handlePurchase = (item: ShopItemModel) => {
+    const balance = wallet?.balance ?? 0;
+    if (balance < item.price) {
+      triggerHaptic('error');
+      alert(`Mablag' yetarli emas! Sizda ${formatNumber(balance)} tanga bor. Mini-o'yinlar orqali tanga yig'ishingiz mumkin.`);
+      return;
+    }
+
+    triggerHaptic('success');
+    playCoinSound();
+    updateBalance(-item.price);
+    const updated = [...ownedItems, item.id];
+    saveOwnedItems(updated);
+
+    if (item.category === ShopItemCategory.BOARD_THEME) {
+      setBoardTheme(item.id as BoardThemeId);
+    }
+
+    setSuccessMessage(`Tabriklaymiz! "${item.name}" muvaffaqiyatli xarid qilindi va o'rnatildi!`);
+    setTimeout(() => setSuccessMessage(null), 3500);
+  };
+
+  const handleEquip = (item: ShopItemModel) => {
+    triggerHaptic('selection');
+    playClickSound();
+    if (item.category === ShopItemCategory.BOARD_THEME) {
+      setBoardTheme(item.id as BoardThemeId);
+      setSuccessMessage(`"${item.name}" doskasi tanlandi!`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    }
+  };
+
   return (
     <PageContainer
       headerProps={{
-        title: 'Shashka Do\'koni',
+        title: "Do'kon",
         showBack: true,
         onBack: () => navigate(-1),
         showBalance: true,
       }}
     >
       <div className="flex flex-col gap-4">
-        {/* MVP Notice Banner */}
-        <Card className="p-3 bg-gradient-to-r from-violet-950/50 to-indigo-950/40 border-indigo-800/40 text-xs flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-violet-600/20 text-violet-300 flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4" />
+        {/* Banner with Mini Games link */}
+        <Card className="p-3.5 bg-gradient-to-r from-violet-950/70 via-indigo-950/60 to-zinc-900 border-indigo-700/50 flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-600/20 text-violet-300 border border-violet-500/30 flex items-center justify-center shrink-0">
+              <Gift className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-zinc-100">Bepul tangalar kerakmi?</h3>
+              <p className="text-[11px] text-zinc-300">
+                Omad g'ildiragi va jumboqlarni yechib tanga yuting!
+              </p>
+            </div>
           </div>
-          <div>
-            <span className="font-bold text-zinc-100">Katalog taqdimoti:</span>
-            <span className="text-zinc-400 ml-1">
-              Hozircha faqat ko'rish rejimi. Xarid qilish tez kunda ishga tushadi!
-            </span>
-          </div>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => navigate('/mini-games')}
+            className="text-xs whitespace-nowrap ml-2"
+          >
+            O'ynash
+          </Button>
         </Card>
+
+        {/* Success toast message */}
+        {successMessage && (
+          <div className="p-3 bg-emerald-950/90 border border-emerald-600/80 rounded-xl text-emerald-200 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+        )}
 
         {/* Categories Tabs */}
         <div className="flex items-center p-1 bg-zinc-900 rounded-xl border border-zinc-800">
@@ -193,49 +270,80 @@ export const ShopPage: React.FC = () => {
               onRetry={refetch}
             />
           ) : (
-            displayItems.map((item) => (
-              <Card
-                key={item.id}
-                className="p-4 bg-zinc-900/60 border-zinc-800 flex flex-col justify-between"
-              >
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 text-indigo-400">
-                      {item.category === ShopItemCategory.BOARD_THEME ? (
-                        <Palette className="w-6 h-6" />
-                      ) : item.category === ShopItemCategory.PIECE_SKIN ? (
-                        <CircleDot className="w-6 h-6" />
-                      ) : (
-                        <Crown className="w-6 h-6" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-zinc-100">{item.name}</h4>
-                      <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
-                        {item.description}
-                      </p>
+            displayItems.map((item) => {
+              const isOwned = ownedItems.includes(item.id);
+              const isEquipped =
+                item.category === ShopItemCategory.BOARD_THEME && boardTheme === item.id;
+
+              return (
+                <Card
+                  key={item.id}
+                  className="p-4 bg-zinc-900/60 border-zinc-800 flex flex-col justify-between transition-all"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 text-indigo-400">
+                        {item.category === ShopItemCategory.BOARD_THEME ? (
+                          <Palette className="w-6 h-6" />
+                        ) : item.category === ShopItemCategory.PIECE_SKIN ? (
+                          <CircleDot className="w-6 h-6" />
+                        ) : (
+                          <Crown className="w-6 h-6" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-zinc-100">{item.name}</h4>
+                          {isEquipped && (
+                            <Badge variant="success" size="sm">
+                              Faol
+                            </Badge>
+                          )}
+                          {isOwned && !isEquipped && (
+                            <Badge variant="neutral" size="sm">
+                              Sotib olingan
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
+                          {item.description}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-zinc-850">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-300 text-sm">
-                    <Coins className="w-4 h-4 text-amber-400" />
-                    <span>{formatNumber(item.price)}</span>
+                  <div className="flex items-center justify-between pt-3 border-t border-zinc-850">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-300 text-sm">
+                      <Coins className="w-4 h-4 text-amber-400" />
+                      <span>{formatNumber(item.price)} tanga</span>
+                    </div>
+
+                    {isEquipped ? (
+                      <Button variant="secondary" size="sm" disabled className="text-emerald-400 border-emerald-800">
+                        <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> Tanlangan
+                      </Button>
+                    ) : isOwned ? (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handleEquip(item)}
+                      >
+                        O'rnatish
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => handlePurchase(item)}
+                        leftIcon={<Sparkles className="w-3.5 h-3.5 text-amber-300" />}
+                      >
+                        Xarid qilish
+                      </Button>
+                    )}
                   </div>
-
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled
-                    leftIcon={<Lock className="w-3.5 h-3.5 text-zinc-400" />}
-                    className="opacity-70"
-                  >
-                    Tez kunda
-                  </Button>
-                </div>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           )}
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { InlineKeyboard } from 'grammy';
 import type { BotContext } from '../types.js';
 import { InvitationHandler } from './invitation.js';
 import { handleStatsCommand } from '../commands/stats.js';
@@ -31,12 +32,78 @@ export async function handleCallbackQueries(ctx: BotContext): Promise<void> {
       return;
     }
 
-    // Mini Games "Coming Soon" Callback
+    // Mini Games Interactive Callback
     if (data === 'action:mini_games') {
-      await ctx.answerCallbackQuery({
-        text: ctx.t('mini_games_coming_soon'),
-        show_alert: true,
-      });
+      await ctx.answerCallbackQuery();
+      const config = getBotConfig();
+      const kb = new InlineKeyboard()
+        .text('🎲 Omad zarini tashlash', 'mini:roll_dice')
+        .row();
+      const miniGamesUrl = `${config.WEB_URL.replace(/\/$/, '')}/mini-games`;
+      if (config.WEB_URL.startsWith('https://')) {
+        kb.webApp('🧩 Web Taktik Jumboqlar', miniGamesUrl);
+      } else {
+        kb.url('🧩 Web Taktik Jumboqlar', miniGamesUrl);
+      }
+      kb.row().text('🔙 Asosiy menyu', 'menu:main');
+
+      await ctx.reply(
+        '🎲 *Shashka Mini-O‘yinlar Bo‘limi*\n\n' +
+        'Bu yerda siz qo‘shimcha tangalar ishlab olishingiz va mahoratingizni oshirishingiz mumkin:\n\n' +
+        '1️⃣ *Omad Zari* — Telegram ichida zarni tashlab 100 dan 600 gacha tanga yuting!\n' +
+        '2️⃣ *Taktik Jumboqlar* — Web ilovada shashka kombinatsiyalarini yechib 300-500 tanga ishlang!',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: kb,
+        },
+      );
+      return;
+    }
+
+    if (data === 'mini:roll_dice') {
+      await ctx.answerCallbackQuery({ text: 'Zar tashlanmoqda...' });
+      const diceMsg = await ctx.replyWithDice('🎲');
+      const diceVal = diceMsg.dice?.value || Math.floor(Math.random() * 6) + 1;
+      const coinReward = diceVal * 100;
+
+      let newBalance = 0;
+      if (ctx.dbUser) {
+        newBalance = await UserService.addCoins(
+          ctx.dbUser.id,
+          coinReward,
+          `Telegram Omad zari: ${diceVal}`,
+        );
+      }
+
+      const config = getBotConfig();
+      const kb = new InlineKeyboard()
+        .text('🎲 Yana tashlash', 'mini:roll_dice')
+        .row();
+
+      const shopUrl = `${config.WEB_URL.replace(/\/$/, '')}/shop`;
+      if (config.WEB_URL.startsWith('https://')) {
+        kb.webApp('🛒 Do‘konga o‘tish', shopUrl);
+      } else {
+        kb.url('🛒 Do‘konga o‘tish', shopUrl);
+      }
+      kb.row().text('🔙 Asosiy menyu', 'menu:main');
+
+      setTimeout(async () => {
+        try {
+          await ctx.reply(
+            `🎉 *Tabriklaymiz!*\n\n` +
+            `Sizga zarda *${diceVal}* tushdi!\n` +
+            `💰 Hamyoningizga *+${coinReward} tanga* qo‘shildi!\n` +
+            (newBalance > 0 ? `💵 Yangi balansingiz: *${newBalance} tanga*` : ''),
+            {
+              parse_mode: 'Markdown',
+              reply_markup: kb,
+            },
+          );
+        } catch (e) {
+          logger.warn({ e }, 'Failed to send dice reward message');
+        }
+      }, 1500);
       return;
     }
 

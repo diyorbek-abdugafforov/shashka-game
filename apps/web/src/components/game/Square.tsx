@@ -37,6 +37,12 @@ export const Square: React.FC<SquareProps> = ({
         return isDark ? 'bg-[#0f4a38]' : 'bg-[#e2f1e8]';
       case 'dark':
         return isDark ? 'bg-[#182030]' : 'bg-[#3b475e]';
+      case 'board-royal':
+        return isDark ? 'bg-[#5c3317]' : 'bg-[#d2b48c]';
+      case 'board-emerald-luxury':
+        return isDark ? 'bg-[#0a4332]' : 'bg-[#e0f2e9]';
+      case 'board-midnight':
+        return isDark ? 'bg-[#0b1120]' : 'bg-[#334155]';
       case 'classic':
       default:
         return isDark ? 'bg-[#6b472e]' : 'bg-[#dfcead]';

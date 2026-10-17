@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Coins } from 'lucide-react';
+import { ArrowLeft, Coins, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../providers/ThemeProvider';
 import { formatNumber } from '../../utils/format';
 import { triggerHaptic } from '../../utils/telegram';
 
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const { wallet } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const handleBack = () => {
     triggerHaptic('light');
@@ -33,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-850 max-w-md mx-auto w-full">
+    <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-850 max-w-md mx-auto w-full transition-colors">
       <div className="flex items-center gap-2.5 min-w-0">
         {showBack && (
           <button
@@ -58,6 +60,19 @@ export const Header: React.FC<HeaderProps> = ({
             <span>{formatNumber(wallet.balance)}</span>
           </div>
         )}
+
+        <button
+          onClick={() => {
+            triggerHaptic('selection');
+            toggleTheme();
+          }}
+          className="w-8 h-8 rounded-xl flex items-center justify-center bg-zinc-800/80 border border-zinc-700/60 text-amber-400 hover:text-amber-300 active:scale-95 transition-all"
+          title={theme === 'dark' ? "Yorug' rejim" : "Qorong'i rejim"}
+          aria-label="Mavzuni almashtirish"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4 text-indigo-400" />}
+        </button>
+
         {rightAction}
       </div>
     </header>

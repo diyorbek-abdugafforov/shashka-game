@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 
-export type BoardThemeId = 'classic' | 'wood' | 'emerald' | 'dark';
+export type BoardThemeId =
+  | 'classic'
+  | 'wood'
+  | 'emerald'
+  | 'dark'
+  | 'board-royal'
+  | 'board-emerald-luxury'
+  | 'board-midnight';
 
 interface SettingsState {
   soundEnabled: boolean;

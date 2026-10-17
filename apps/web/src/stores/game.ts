@@ -22,6 +22,13 @@ import {
   GameStatus as EngineGameStatus,
 } from '@shashka/game-engine';
 import { triggerHaptic } from '../utils/telegram';
+import {
+  playMoveSound,
+  playCaptureSound,
+  playPromotionSound,
+  playWinSound,
+  playLoseSound,
+} from '../utils/sound';
 
 export type BotDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -278,6 +285,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ isSubmittingMove: true });
     triggerHaptic(move.captures && move.captures.length > 0 ? 'heavy' : 'light');
 
+    // Play appropriate sound
+    if (move.captures && move.captures.length > 0) {
+      playCaptureSound();
+    } else if (move.promotion) {
+      playPromotionSound();
+    } else {
+      playMoveSound();
+    }
+
     const nextBoard = applyMoveToBoard(board, move, currentTurn);
     const nextTurn = currentTurn === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE;
     const nextLegalMoves = getLegalMoves(nextBoard as any, nextTurn === PlayerColor.WHITE ? Player.WHITE : Player.BLACK);
@@ -302,6 +318,17 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (result === GameResult.WHITE_WON) newScores.white++;
       else if (result === GameResult.BLACK_WON) newScores.black++;
       set({ offlineScores: newScores });
+
+      // Play victory / defeat sounds
+      if (mode === GameMode.BOT) {
+        if (result === GameResult.WHITE_WON) {
+          playWinSound();
+        } else {
+          playLoseSound();
+        }
+      } else {
+        playWinSound();
+      }
     }
 
     set({
@@ -363,6 +390,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     else newScores.black++;
 
     triggerHaptic('error');
+    playLoseSound();
     set({
       isGameOver: true,
       gameResult: result,
@@ -374,6 +402,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   offerDrawOffline: () => {
     const { offlineScores } = get();
     triggerHaptic('warning');
+    playMoveSound();
     set({
       isGameOver: true,
       gameResult: GameResult.DRAW,
@@ -402,6 +431,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const board = payload.game.boardState.matrix;
     const currentTurn = payload.game.currentTurn;
     const legalMoves = getLegalMoves(board as any, currentTurn === PlayerColor.WHITE ? Player.WHITE : Player.BLACK);
+
+    if (payload.game.status === GameStatus.FINISHED && myColor) {
+      const iWon = (myColor === PlayerColor.WHITE && payload.game.result === GameResult.WHITE_WON) ||
+                   (myColor === PlayerColor.BLACK && payload.game.result === GameResult.BLACK_WON);
+      if (iWon) playWinSound();
+      else if (payload.game.result !== GameResult.DRAW) playLoseSound();
+    }
 
     set({
       onlineGameId: payload.game.id,
@@ -448,6 +484,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     const nextLegalMoves = getLegalMoves(nextBoard as any, payload.nextTurn === PlayerColor.WHITE ? Player.WHITE : Player.BLACK);
 
     triggerHaptic(move.captures.length > 0 ? 'heavy' : 'light');
+
+    if (move.captures && move.captures.length > 0) {
+      playCaptureSound();
+    } else if (move.isPromotion) {
+      playPromotionSound();
+    } else {
+      playMoveSound();
+    }
 
     set({
       board: nextBoard,

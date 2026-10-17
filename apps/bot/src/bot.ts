@@ -1,4 +1,4 @@
-import { Bot, session, GrammyError, HttpError } from 'grammy';
+import { Bot, session, InlineKeyboard, GrammyError, HttpError } from 'grammy';
 import { Redis, type Redis as RedisClient } from 'ioredis';
 import { RedisAdapter } from '@grammyjs/storage-redis';
 import type { BotContext, BotSession } from './types.js';
@@ -86,6 +86,51 @@ export function createBot(): { bot: Bot<BotContext>; redisClient: RedisClient | 
   bot.command('settings', handleSettingsCommand);
   bot.command('stats', handleStatsCommand);
   bot.command('broadcast', handleBroadcastCommand);
+
+  bot.command(['minigames', 'mini_games'], async (ctx) => {
+    const config = getBotConfig();
+    const kb = new InlineKeyboard()
+      .text('🎲 Omad zarini tashlash', 'mini:roll_dice')
+      .row();
+    const miniGamesUrl = `${config.WEB_URL.replace(/\/$/, '')}/mini-games`;
+    if (config.WEB_URL.startsWith('https://')) {
+      kb.webApp('🧩 Web Taktik Jumboqlar', miniGamesUrl);
+    } else {
+      kb.url('🧩 Web Taktik Jumboqlar', miniGamesUrl);
+    }
+    kb.row().text('🔙 Asosiy menyu', 'menu:main');
+
+    await ctx.reply(
+      '🎲 *Shashka Mini-O‘yinlar Bo‘limi*\n\n' +
+      '1️⃣ *Omad Zari* — Har kuni zarni tashlab 100 dan 600 gacha tanga yuting!\n' +
+      '2️⃣ *Taktik Jumboqlar* — Web ilovada shashka kombinatsiyalarini yechib 300-500 tanga ishlang!',
+      {
+        parse_mode: 'Markdown',
+        reply_markup: kb,
+      },
+    );
+  });
+
+  bot.command(['shop', 'dokon'], async (ctx) => {
+    const config = getBotConfig();
+    const shopUrl = `${config.WEB_URL.replace(/\/$/, '')}/shop`;
+    const kb = new InlineKeyboard();
+    if (config.WEB_URL.startsWith('https://')) {
+      kb.webApp('🛒 Do‘konni ochish', shopUrl);
+    } else {
+      kb.url('🛒 Do‘konni ochish', shopUrl);
+    }
+    kb.row().text('🔙 Asosiy menyu', 'menu:main');
+
+    await ctx.reply(
+      '🛒 *Shashka Do‘koni*\n\n' +
+      'O‘yindagi tangalaringiz evaziga yangi shashka doskalari va tosh terilarini sotib oling!',
+      {
+        parse_mode: 'Markdown',
+        reply_markup: kb,
+      },
+    );
+  });
 
   // 5. Callback Query Handlers
   bot.on('callback_query:data', handleCallbackQueries);

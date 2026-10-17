@@ -11,12 +11,9 @@ export const mainMenu = new Menu<BotContext>('main-menu')
     getBotConfig().WEB_URL,
   )
   .row()
-  .text(
+  .webApp(
     (ctx) => ctx.t('btn_mini_games'),
-    async (ctx) => {
-      await ctx.answerCallbackQuery();
-      await ctx.reply(ctx.t('mini_games_coming_soon'));
-    },
+    `${getBotConfig().WEB_URL.replace(/\/$/, '')}/mini-games`,
   )
   .webApp(
     (ctx) => ctx.t('btn_shop'),

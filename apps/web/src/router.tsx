@@ -12,6 +12,7 @@ import { GameHistoryPage } from './pages/GameHistoryPage';
 import { GameReplayPage } from './pages/GameReplayPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ShopPage } from './pages/ShopPage';
+import { MiniGamesPage } from './pages/MiniGamesPage';
 
 export const router = createBrowserRouter([
   {
@@ -61,6 +62,10 @@ export const router = createBrowserRouter([
   {
     path: '/shop',
     element: <ShopPage />,
+  },
+  {
+    path: '/mini-games',
+    element: <MiniGamesPage />,
   },
   {
     path: '/tournaments',

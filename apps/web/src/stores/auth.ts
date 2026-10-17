@@ -15,6 +15,7 @@ interface AuthState {
   setUser: (user: UserModel | null) => void;
   setWallet: (wallet: WalletModel | null) => void;
   setToken: (token: string | null) => void;
+  updateBalance: (delta: number) => void;
   login: (initData?: string) => Promise<boolean>;
   checkSession: () => Promise<void>;
   logout: () => Promise<void>;
@@ -33,6 +34,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setToken: (token) => {
     setApiAuthToken(token);
     set({ token, isAuthenticated: Boolean(token) });
+  },
+
+  updateBalance: (delta: number) => {
+    const current = get().wallet;
+    if (current) {
+      const updated = { ...current, balance: Math.max(0, current.balance + delta) };
+      set({ wallet: updated });
+      try {
+        localStorage.setItem('shashka_guest_balance', String(updated.balance));
+      } catch {}
+    } else {
+      const initial = Math.max(0, 1000 + delta);
+      set({
+        wallet: {
+          id: 'wallet-local',
+          userId: get().user?.id || 'guest',
+          balance: initial,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+      try {
+        localStorage.setItem('shashka_guest_balance', String(initial));
+      } catch {}
+    }
   },
 
   login: async (overrideInitData?: string) => {
