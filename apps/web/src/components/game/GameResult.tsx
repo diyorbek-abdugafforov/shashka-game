@@ -4,6 +4,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Trophy, Frown, Handshake, ArrowUpRight, ArrowDownRight, RotateCcw, Home } from 'lucide-react';
 import { getResultReasonLabel, getGameResultLabel } from '../../utils/format';
+import { useTranslation } from '../../i18n';
 import { cn } from '../../utils/cn';
 
 export interface GameResultModalProps {
@@ -25,6 +26,7 @@ export const GameResultModal: React.FC<GameResultModalProps> = ({
   onPlayAgain,
   onExit,
 }) => {
+  const { t, language } = useTranslation();
   const resultInfo = getGameResultLabel(result, myColor || undefined);
   const reasonText = getResultReasonLabel(reason);
 
@@ -74,7 +76,13 @@ export const GameResultModal: React.FC<GameResultModalProps> = ({
         {/* Rating Change Display */}
         {ratingChange !== undefined && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-800/80 border border-zinc-700/60 text-xs font-bold mb-6">
-            <span>Reyting o'zgarishi:</span>
+            <span>
+              {language === 'ru'
+                ? 'Изменение рейтинга:'
+                : language === 'en'
+                  ? 'Rating change:'
+                  : "Reyting o'zgarishi:"}
+            </span>
             <span
               className={cn(
                 'flex items-center font-mono',
@@ -99,7 +107,7 @@ export const GameResultModal: React.FC<GameResultModalProps> = ({
             fullWidth
             leftIcon={<RotateCcw className="w-5 h-5" />}
           >
-            Yana o'ynash
+            {t('game_play_again')}
           </Button>
 
           <Button
@@ -109,7 +117,11 @@ export const GameResultModal: React.FC<GameResultModalProps> = ({
             fullWidth
             leftIcon={<Home className="w-4 h-4" />}
           >
-            Asosiy sahifaga qaytish
+            {language === 'ru'
+              ? 'На главный экран'
+              : language === 'en'
+                ? 'Back to Home'
+                : 'Asosiy sahifaga qaytish'}
           </Button>
         </div>
       </div>

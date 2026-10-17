@@ -3,33 +3,36 @@ import { NavLink } from 'react-router-dom';
 import { Gamepad2, User, Trophy, BarChart3, Menu } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { triggerHaptic } from '../../utils/telegram';
+import { useTranslation } from '../../i18n';
 
 export const BottomNav: React.FC = () => {
+  const { t } = useTranslation();
+
   const navItems = [
     {
       to: '/profile',
-      label: 'Profil',
+      label: t('nav_profile'),
       icon: User,
     },
     {
       to: '/',
-      label: "O'yin",
+      label: t('nav_play'),
       icon: Gamepad2,
     },
     {
       to: '/tournaments',
-      label: 'Turnir',
+      label: t('nav_tournaments'),
       icon: Trophy,
-      badge: 'Tez kunda',
+      badge: t('nav_coming_soon'),
     },
     {
       to: '/leaderboard',
-      label: 'Reyting',
+      label: t('nav_leaderboard'),
       icon: BarChart3,
     },
     {
       to: '/settings',
-      label: 'Menyu',
+      label: t('nav_settings'),
       icon: Menu,
     },
   ];

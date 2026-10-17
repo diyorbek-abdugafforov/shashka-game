@@ -3,6 +3,7 @@ import { Flag, Handshake, RotateCcw, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { useSettingsStore } from '../../stores/settings';
+import { useTranslation } from '../../i18n';
 import { triggerHaptic } from '../../utils/telegram';
 import { cn } from '../../utils/cn';
 
@@ -32,6 +33,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
   const [showResignModal, setShowResignModal] = useState(false);
   const [showDrawModal, setShowDrawModal] = useState(false);
   const { soundEnabled, toggleSound } = useSettingsStore();
+  const { t, language } = useTranslation();
 
   const handleResignConfirm = () => {
     setShowResignModal(false);
@@ -50,7 +52,13 @@ export const GameControls: React.FC<GameControlsProps> = ({
         <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-950/40 border border-amber-800/60 text-amber-200 animate-slide-down">
           <div className="flex items-center gap-2">
             <Handshake className="w-5 h-5 text-amber-400" />
-            <span className="text-xs font-semibold">Raqib durang taklif qildi!</span>
+            <span className="text-xs font-semibold">
+              {language === 'ru'
+                ? 'Соперник предлагает ничью!'
+                : language === 'en'
+                  ? 'Opponent offered a draw!'
+                  : 'Raqib durang taklif qildi!'}
+            </span>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -62,7 +70,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 onAcceptDraw?.();
               }}
             >
-              Qabul qilish
+              {language === 'ru' ? 'Принять' : language === 'en' ? 'Accept' : 'Qabul qilish'}
             </Button>
             <Button
               variant="secondary"
@@ -72,7 +80,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 onDeclineDraw?.();
               }}
             >
-              Rad etish
+              {language === 'ru' ? 'Отклонить' : language === 'en' ? 'Decline' : 'Rad etish'}
             </Button>
           </div>
         </div>
@@ -88,10 +96,10 @@ export const GameControls: React.FC<GameControlsProps> = ({
               triggerHaptic('light');
               onRotateBoard();
             }}
-            title="Doskani aylantirish"
+            title={language === 'ru' ? 'Повернуть доску' : language === 'en' ? 'Rotate board' : 'Doskani aylantirish'}
             className="flex-1"
           >
-            Aylantirish
+            {language === 'ru' ? 'Поворот' : language === 'en' ? 'Rotate' : 'Aylantirish'}
           </Button>
         )}
 
@@ -106,7 +114,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
             leftIcon={<Handshake className="w-4 h-4" />}
             className="flex-1"
           >
-            Durang
+            {language === 'ru' ? 'Ничья' : language === 'en' ? 'Draw' : 'Durang'}
           </Button>
         )}
 
@@ -121,7 +129,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
             leftIcon={<Flag className="w-4 h-4 text-rose-400" />}
             className="flex-1 text-rose-300 border-rose-900/40 hover:bg-rose-950/30"
           >
-            Taslim
+            {language === 'ru' ? 'Сдаться' : language === 'en' ? 'Resign' : 'Taslim'}
           </Button>
         )}
 
@@ -136,7 +144,7 @@ export const GameControls: React.FC<GameControlsProps> = ({
             leftIcon={<RotateCcw className="w-4 h-4" />}
             className="flex-1"
           >
-            Qayta
+            {language === 'ru' ? 'Заново' : language === 'en' ? 'Restart' : 'Qayta'}
           </Button>
         )}
 
@@ -159,17 +167,27 @@ export const GameControls: React.FC<GameControlsProps> = ({
       <Modal
         isOpen={showResignModal}
         onClose={() => setShowResignModal(false)}
-        title="O'yinni taslim qilmoqchimisiz?"
+        title={
+          language === 'ru'
+            ? 'Вы хотите сдаться?'
+            : language === 'en'
+              ? 'Do you want to resign?'
+              : "O'yinni taslim qilmoqchimisiz?"
+        }
       >
         <p className="text-xs text-zinc-400">
-          Taslim bo'lsangiz, raqibingiz g'alaba qozonadi va sizga mag'lubiyat yoziladi.
+          {language === 'ru'
+            ? 'При сдаче соперник получает победу, а вам засчитывается поражение.'
+            : language === 'en'
+              ? 'If you resign, the opponent wins and defeat is recorded.'
+              : "Taslim bo'lsangiz, raqibingiz g'alaba qozonadi va sizga mag'lubiyat yoziladi."}
         </p>
         <div className="flex items-center justify-end gap-2 pt-2">
           <Button variant="ghost" size="sm" onClick={() => setShowResignModal(false)}>
-            Bekor qilish
+            {language === 'ru' ? 'Отмена' : language === 'en' ? 'Cancel' : 'Bekor qilish'}
           </Button>
           <Button variant="danger" size="sm" onClick={handleResignConfirm}>
-            Taslim bo'lish
+            {language === 'ru' ? 'Сдаться' : language === 'en' ? 'Resign' : "Taslim bo'lish"}
           </Button>
         </div>
       </Modal>
@@ -178,17 +196,27 @@ export const GameControls: React.FC<GameControlsProps> = ({
       <Modal
         isOpen={showDrawModal}
         onClose={() => setShowDrawModal(false)}
-        title="Durang taklif qilinsinmi?"
+        title={
+          language === 'ru'
+            ? 'Предложить ничью?'
+            : language === 'en'
+              ? 'Offer a draw?'
+              : 'Durang taklif qilinsinmi?'
+        }
       >
         <p className="text-xs text-zinc-400">
-          Raqibingizga o'zaro durang qilish taklifi yuboriladi.
+          {language === 'ru'
+            ? 'Сопернику будет отправлено предложение согласиться на ничью.'
+            : language === 'en'
+              ? 'A mutual draw offer will be sent to your opponent.'
+              : "Raqibingizga o'zaro durang qilish taklifi yuboriladi."}
         </p>
         <div className="flex items-center justify-end gap-2 pt-2">
           <Button variant="ghost" size="sm" onClick={() => setShowDrawModal(false)}>
-            Bekor qilish
+            {language === 'ru' ? 'Отмена' : language === 'en' ? 'Cancel' : 'Bekor qilish'}
           </Button>
           <Button variant="primary" size="sm" onClick={handleDrawConfirm}>
-            Taklif qilish
+            {language === 'ru' ? 'Предложить' : language === 'en' ? 'Offer' : 'Taklif qilish'}
           </Button>
         </div>
       </Modal>

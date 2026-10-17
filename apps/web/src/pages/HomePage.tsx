@@ -15,6 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usersApi } from '../api/users';
 import { gamesApi } from '../api/games';
 import { triggerHaptic } from '../utils/telegram';
+import { useTranslation } from '../i18n';
 import {
   Bot,
   Users,
@@ -32,6 +33,7 @@ import {
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -60,7 +62,7 @@ export const HomePage: React.FC = () => {
   return (
     <PageContainer
       headerProps={{
-        title: 'Rus Shashkasi',
+        title: t('app_title'),
         showBalance: true,
       }}
     >
@@ -71,13 +73,13 @@ export const HomePage: React.FC = () => {
             <div className="flex items-center gap-3">
               <Avatar
                 src={user?.avatarUrl}
-                name={user?.displayName || 'Foydalanuvchi'}
+                name={user?.displayName || t('player')}
                 size="lg"
               />
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-zinc-400">Xush kelibsiz,</span>
+                <span className="text-xs font-medium text-zinc-400">{t('welcome')},</span>
                 <span className="text-base font-bold text-zinc-100">
-                  {user?.displayName || 'Shashkachi'}
+                  {user?.displayName || t('player')}
                 </span>
                 <div className="mt-1">
                   <RatingBadge rating={currentRating} />
@@ -89,9 +91,9 @@ export const HomePage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => navigate('/profile')}
-              aria-label="Profilga o'tish"
+              aria-label={t('nav_profile')}
             >
-              Profil
+              {t('nav_profile')}
             </Button>
           </div>
         </Card>
@@ -107,17 +109,17 @@ export const HomePage: React.FC = () => {
           ) : (
             <>
               <StatCard
-                label="O'yinlar"
+                label={t('home_games')}
                 value={gamesPlayed}
                 icon={<Zap className="w-3.5 h-3.5 text-indigo-400" />}
               />
               <StatCard
-                label="G'alabalar"
+                label={t('home_wins')}
                 value={wins}
                 icon={<Trophy className="w-3.5 h-3.5 text-amber-400" />}
               />
               <StatCard
-                label="G'alaba %"
+                label={t('home_winrate')}
                 value={`${winRate}%`}
                 icon={<Flame className="w-3.5 h-3.5 text-rose-400" />}
               />
@@ -129,7 +131,7 @@ export const HomePage: React.FC = () => {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider">
-              O'yin rejimini tanlang
+              {t('home_choose_mode')}
             </h2>
           </div>
 
@@ -150,13 +152,13 @@ export const HomePage: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-zinc-100">Onlayn o'yin</h3>
+                    <h3 className="text-base font-bold text-zinc-100">{t('home_online')}</h3>
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-950 text-emerald-400 border border-emerald-800">
-                      Tezkor
+                      {t('home_online_badge')}
                     </span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Haqiqiy raqiblar bilan reytingli bahslar
+                    {t('home_online_desc')}
                   </p>
                 </div>
               </div>
@@ -183,13 +185,13 @@ export const HomePage: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-zinc-100">Do'st bilan o'ynash</h3>
+                    <h3 className="text-sm font-bold text-zinc-100">{t('home_friend')}</h3>
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-violet-950 text-violet-400 border border-violet-800">
-                      Havola
+                      {t('home_friend_badge')}
                     </span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Havola orqali boshqa qurilmadagi do'stni taklif qiling
+                    {t('home_friend_desc')}
                   </p>
                 </div>
               </div>
@@ -209,9 +211,9 @@ export const HomePage: React.FC = () => {
                   <Bot className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-100">Botga qarshi mashg'ulot</h3>
+                  <h3 className="text-sm font-bold text-zinc-100">{t('home_bot')}</h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Oson, O'rta va Qiyin darajali sun'iy intellekt
+                    {t('home_bot_desc')}
                   </p>
                 </div>
               </div>
@@ -231,9 +233,9 @@ export const HomePage: React.FC = () => {
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-100">Ikki o'yinchi (Bir qurilmada)</h3>
+                  <h3 className="text-sm font-bold text-zinc-100">{t('home_offline')}</h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Do'stingiz bilan navbatma-navbat o'ynang
+                    {t('home_offline_desc')}
                   </p>
                 </div>
               </div>
@@ -256,8 +258,8 @@ export const HomePage: React.FC = () => {
                   <ShoppingBag className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-zinc-100">Do'kon</h4>
-                  <p className="text-[10px] text-zinc-400 mt-0.5">Doska va toshlar</p>
+                  <h4 className="text-xs font-bold text-zinc-100">{t('home_shop')}</h4>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">{t('home_shop_desc')}</p>
                 </div>
               </div>
             </Card>
@@ -275,8 +277,8 @@ export const HomePage: React.FC = () => {
                   <Dices className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-zinc-100">Mini o'yinlar</h4>
-                  <p className="text-[10px] text-zinc-400 mt-0.5">Bonus & Jumboq</p>
+                  <h4 className="text-xs font-bold text-zinc-100">{t('home_minigames')}</h4>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">{t('home_minigames_desc')}</p>
                 </div>
               </div>
             </Card>
@@ -287,13 +289,13 @@ export const HomePage: React.FC = () => {
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-zinc-200 uppercase tracking-wider">
-              So'nggi o'yinlar
+              {t('home_recent_games')}
             </h2>
             <button
               onClick={() => navigate('/history')}
               className="text-xs text-indigo-400 font-semibold hover:underline"
             >
-              Barchasi
+              {t('view_all')}
             </button>
           </div>
 
@@ -311,14 +313,14 @@ export const HomePage: React.FC = () => {
           ) : (
             <Card className="p-6 text-center text-zinc-400 border-dashed border-zinc-800">
               <Sparkles className="w-8 h-8 text-indigo-400 mx-auto mb-2 opacity-60" />
-              <p className="text-xs">Siz hali birorta ham o'yin o'tkazmadingiz.</p>
+              <p className="text-xs">{t('home_no_games')}</p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/modes')}
                 className="mt-3"
               >
-                Ilk o'yinni boshlash
+                {t('home_start_first')}
               </Button>
             </Card>
           )}

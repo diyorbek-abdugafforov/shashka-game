@@ -4,6 +4,7 @@ import { PageContainer } from '../components/layout/PageContainer';
 import { Card } from '../components/ui/Card';
 import { useSettingsStore, BoardThemeId } from '../stores/settings';
 import { useTheme } from '../providers/ThemeProvider';
+import { useTranslation } from '../i18n';
 import {
   Volume2,
   VolumeX,
@@ -22,6 +23,7 @@ import { triggerHaptic } from '../utils/telegram';
 
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const {
     soundEnabled,
     animationsEnabled,
@@ -45,16 +47,16 @@ export const SettingsPage: React.FC = () => {
   };
 
   const boardThemes: { id: BoardThemeId; label: string; previewDark: string; previewLight: string }[] = [
-    { id: 'classic', label: 'Klassik', previewDark: '#6b472e', previewLight: '#dfcead' },
-    { id: 'wood', label: 'Yog\'och', previewDark: '#784627', previewLight: '#d8b898' },
-    { id: 'emerald', label: 'Zumrad', previewDark: '#0f4a38', previewLight: '#e2f1e8' },
-    { id: 'dark', label: 'To\'q ko\'k', previewDark: '#182030', previewLight: '#3b475e' },
+    { id: 'classic', label: language === 'ru' ? 'Классика' : language === 'en' ? 'Classic' : 'Klassik', previewDark: '#6b472e', previewLight: '#dfcead' },
+    { id: 'wood', label: language === 'ru' ? 'Дерево' : language === 'en' ? 'Wood' : 'Yog\'och', previewDark: '#784627', previewLight: '#d8b898' },
+    { id: 'emerald', label: language === 'ru' ? 'Изумруд' : language === 'en' ? 'Emerald' : 'Zumrad', previewDark: '#0f4a38', previewLight: '#e2f1e8' },
+    { id: 'dark', label: language === 'ru' ? 'Тёмный' : language === 'en' ? 'Midnight' : 'To\'q ko\'k', previewDark: '#182030', previewLight: '#3b475e' },
   ];
 
   return (
     <PageContainer
       headerProps={{
-        title: 'Sozlamalar',
+        title: t('settings_title'),
         showBack: true,
         onBack: () => navigate(-1),
       }}
@@ -63,7 +65,7 @@ export const SettingsPage: React.FC = () => {
         {/* Gameplay Preferences */}
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">
-            O'yin sozlamalari
+            {t('settings_gameplay')}
           </span>
 
           <Card className="divide-y divide-zinc-800/80 p-0 overflow-hidden bg-zinc-900/60 border-zinc-800">
@@ -74,8 +76,8 @@ export const SettingsPage: React.FC = () => {
                   {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-zinc-100">Ovoz effektlari</div>
-                  <div className="text-[11px] text-zinc-400">Yurish va urish tovushlari</div>
+                  <div className="text-xs font-semibold text-zinc-100">{t('settings_sound')}</div>
+                  <div className="text-[11px] text-zinc-400">{t('settings_sound_desc')}</div>
                 </div>
               </div>
               <button
@@ -103,8 +105,8 @@ export const SettingsPage: React.FC = () => {
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-zinc-100">Animatsiyalar</div>
-                  <div className="text-[11px] text-zinc-400">Toshlarning siljish animatsiyasi</div>
+                  <div className="text-xs font-semibold text-zinc-100">{t('settings_anim')}</div>
+                  <div className="text-[11px] text-zinc-400">{t('settings_anim_desc')}</div>
                 </div>
               </div>
               <button
@@ -132,8 +134,8 @@ export const SettingsPage: React.FC = () => {
                   <Smartphone className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-zinc-100">Haptika (Vibratsiya)</div>
-                  <div className="text-[11px] text-zinc-400">Tugmalar va harakat tebranishlari</div>
+                  <div className="text-xs font-semibold text-zinc-100">{t('settings_haptics')}</div>
+                  <div className="text-[11px] text-zinc-400">{t('settings_haptics_desc')}</div>
                 </div>
               </div>
               <button
@@ -161,8 +163,8 @@ export const SettingsPage: React.FC = () => {
                   <RotateCw className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-zinc-100">Doskani avtomatik burish</div>
-                  <div className="text-[11px] text-zinc-400">Offline o'yinda navbat o'zgarganda</div>
+                  <div className="text-xs font-semibold text-zinc-100">{t('settings_autorotate')}</div>
+                  <div className="text-[11px] text-zinc-400">{t('settings_autorotate_desc')}</div>
                 </div>
               </div>
               <button
@@ -188,7 +190,7 @@ export const SettingsPage: React.FC = () => {
         {/* Board Theme Selection */}
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">
-            Doska mavzusi
+            {t('settings_board_theme')}
           </span>
 
           <div className="grid grid-cols-2 gap-2.5">
@@ -225,7 +227,7 @@ export const SettingsPage: React.FC = () => {
         {/* Language & Theme */}
         <div className="flex flex-col gap-2">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider pl-1">
-            Til va ko'rinish
+            {t('settings_lang_and_theme')}
           </span>
 
           <Card className="divide-y divide-zinc-800/80 p-0 overflow-hidden bg-zinc-900/60 border-zinc-800">
@@ -235,7 +237,7 @@ export const SettingsPage: React.FC = () => {
                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
                   <Globe className="w-4 h-4" />
                 </div>
-                <div className="text-xs font-semibold text-zinc-100">Ilova tili</div>
+                <div className="text-xs font-semibold text-zinc-100">{t('settings_lang')}</div>
               </div>
 
               <select
@@ -256,9 +258,9 @@ export const SettingsPage: React.FC = () => {
                   {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-zinc-100">Telegram mavzusi</div>
+                  <div className="text-xs font-semibold text-zinc-100">{t('settings_theme')}</div>
                   <div className="text-[11px] text-zinc-400">
-                    {theme === 'dark' ? 'Tungi rejim' : 'Kunduzgi rejim'}
+                    {theme === 'dark' ? t('settings_theme_dark') : t('settings_theme_light')}
                   </div>
                 </div>
               </div>
@@ -267,7 +269,7 @@ export const SettingsPage: React.FC = () => {
                 onClick={() => handleToggle(toggleTheme)}
                 className="text-xs font-semibold text-indigo-400 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/50 hover:bg-indigo-900/40"
               >
-                O'zgartirish
+                {t('settings_theme_btn')}
               </button>
             </div>
           </Card>
@@ -275,8 +277,8 @@ export const SettingsPage: React.FC = () => {
 
         {/* About App */}
         <Card className="p-4 bg-zinc-900/40 border-zinc-800 text-center">
-          <h4 className="text-xs font-bold text-zinc-200">Rus Shashkasi Telegram Mini App</h4>
-          <p className="text-[11px] text-zinc-500 mt-1">Versiya 1.0.0 · Barcha huquqlar himoyalangan</p>
+          <h4 className="text-xs font-bold text-zinc-200">{t('settings_about')}</h4>
+          <p className="text-[11px] text-zinc-500 mt-1">{t('settings_version')}</p>
         </Card>
       </div>
     </PageContainer>

@@ -2,6 +2,7 @@ import React from 'react';
 import { PlayerColor } from '@shashka/shared-types';
 import { Spinner } from '../ui/Spinner';
 import { AlertCircle } from 'lucide-react';
+import { useTranslation } from '../../i18n';
 import { cn } from '../../utils/cn';
 
 export interface TurnIndicatorProps {
@@ -17,7 +18,25 @@ export const TurnIndicator: React.FC<TurnIndicatorProps> = ({
   isBotThinking = false,
   className,
 }) => {
+  const { t, language } = useTranslation();
   const isWhite = currentTurn === PlayerColor.WHITE;
+
+  const getTurnText = () => {
+    if (isBotThinking) return t('game_bot_thinking');
+    if (language === 'ru') {
+      return isWhite ? 'Ход: Белые' : 'Ход: Черные';
+    }
+    if (language === 'en') {
+      return isWhite ? 'Turn: White' : 'Turn: Black';
+    }
+    return isWhite ? 'Navbat: Oq toshlar' : 'Navbat: Qora toshlar';
+  };
+
+  const getMandatoryText = () => {
+    if (language === 'ru') return 'Обязательный бой!';
+    if (language === 'en') return 'Capture is mandatory!';
+    return 'Urish majburiy!';
+  };
 
   return (
     <div
@@ -38,15 +57,7 @@ export const TurnIndicator: React.FC<TurnIndicatorProps> = ({
           )}
         />
 
-        <span className="text-xs font-semibold">
-          {isBotThinking ? (
-            'Bot o\'ylamoqda...'
-          ) : isWhite ? (
-            'Navbat: Oq toshlar'
-          ) : (
-            'Navbat: Qora toshlar'
-          )}
-        </span>
+        <span className="text-xs font-semibold">{getTurnText()}</span>
       </div>
 
       {isBotThinking ? (
@@ -54,7 +65,7 @@ export const TurnIndicator: React.FC<TurnIndicatorProps> = ({
       ) : hasMandatoryCapture ? (
         <div className="flex items-center gap-1 text-[11px] font-bold text-rose-400 animate-pulse">
           <AlertCircle className="w-3.5 h-3.5" />
-          <span>Urish majburiy!</span>
+          <span>{getMandatoryText()}</span>
         </div>
       ) : null}
     </div>

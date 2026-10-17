@@ -11,6 +11,7 @@ import { GameResultModal } from '../components/game/GameResult';
 import { Card } from '../components/ui/Card';
 import { useGameStore } from '../stores/game';
 import { useSettingsStore } from '../stores/settings';
+import { useTranslation } from '../i18n';
 import { RotateCw, Trophy, Users } from 'lucide-react';
 import { triggerHaptic } from '../utils/telegram';
 import { cn } from '../utils/cn';
@@ -18,6 +19,7 @@ import { cn } from '../utils/cn';
 export const OfflineGamePage: React.FC = () => {
   const navigate = useNavigate();
   const { autoRotateBoard, toggleAutoRotate } = useSettingsStore();
+  const { t, language } = useTranslation();
 
   const [manualOrientation, setManualOrientation] = useState<PlayerColor>(PlayerColor.WHITE);
 
@@ -73,10 +75,33 @@ export const OfflineGamePage: React.FC = () => {
   const topTime = topColor === PlayerColor.WHITE ? whiteTimeLeftMs : blackTimeLeftMs;
   const bottomTime = bottomColor === PlayerColor.WHITE ? whiteTimeLeftMs : blackTimeLeftMs;
 
+  const p1Name =
+    language === 'ru'
+      ? '1-Игрок (Белые)'
+      : language === 'en'
+        ? 'Player 1 (White)'
+        : "1-O'yinchi (Oq)";
+
+  const p2Name =
+    language === 'ru'
+      ? '2-Игрок (Черные)'
+      : language === 'en'
+        ? 'Player 2 (Black)'
+        : "2-O'yinchi (Qora)";
+
+  const whiteScoreLabel = language === 'ru' ? 'Белые' : language === 'en' ? 'White' : 'Oqlar';
+  const drawScoreLabel = language === 'ru' ? 'Ничьи' : language === 'en' ? 'Draws' : 'Durang';
+  const blackScoreLabel = language === 'ru' ? 'Черные' : language === 'en' ? 'Black' : 'Qoralar';
+
   return (
     <PageContainer
       headerProps={{
-        title: 'Ikki o\'yinchi (Pass & Play)',
+        title:
+          language === 'ru'
+            ? 'Два игрока (На одном экране)'
+            : language === 'en'
+              ? 'Pass & Play (2 Players)'
+              : "Ikki o'yinchi (Pass & Play)",
         showBack: true,
         onBack: () => navigate('/'),
       }}
@@ -87,18 +112,24 @@ export const OfflineGamePage: React.FC = () => {
         <Card className="flex items-center justify-around p-2.5 bg-zinc-900 border-zinc-800 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-stone-200 border border-stone-400" />
-            <span className="font-semibold text-zinc-200">Oqlar: {offlineScores.white}</span>
+            <span className="font-semibold text-zinc-200">
+              {whiteScoreLabel}: {offlineScores.white}
+            </span>
           </div>
-          <span className="text-zinc-500 font-mono">Durang: {offlineScores.draws}</span>
+          <span className="text-zinc-500 font-mono">
+            {drawScoreLabel}: {offlineScores.draws}
+          </span>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-zinc-800 border border-zinc-600" />
-            <span className="font-semibold text-zinc-200">Qoralar: {offlineScores.black}</span>
+            <span className="font-semibold text-zinc-200">
+              {blackScoreLabel}: {offlineScores.black}
+            </span>
           </div>
         </Card>
 
         {/* Top Player (Black or White based on orientation) */}
         <PlayerInfo
-          displayName={boardOrientation === PlayerColor.WHITE ? '2-O\'yinchi (Qora)' : '1-O\'yinchi (Oq)'}
+          displayName={boardOrientation === PlayerColor.WHITE ? p2Name : p1Name}
           color={topColor}
           timeLeftMs={topTime}
           isCurrentTurn={currentTurn === topColor}
@@ -126,7 +157,7 @@ export const OfflineGamePage: React.FC = () => {
 
         {/* Bottom Player */}
         <PlayerInfo
-          displayName={boardOrientation === PlayerColor.WHITE ? '1-O\'yinchi (Oq)' : '2-O\'yinchi (Qora)'}
+          displayName={boardOrientation === PlayerColor.WHITE ? p1Name : p2Name}
           color={bottomColor}
           timeLeftMs={bottomTime}
           isCurrentTurn={currentTurn === bottomColor}

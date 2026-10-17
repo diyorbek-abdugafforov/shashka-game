@@ -1,4 +1,5 @@
 import { GameMode, GameResult, ResultReason } from '@shashka/shared-types';
+import { useSettingsStore } from '../stores/settings';
 
 export function formatTimeLeft(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
@@ -40,20 +41,29 @@ export function formatNumber(n: number): string {
   return new Intl.NumberFormat('uz-UZ').format(n);
 }
 
+function getCurLang(): 'uz' | 'ru' | 'en' {
+  try {
+    return useSettingsStore.getState().language || 'uz';
+  } catch {
+    return 'uz';
+  }
+}
+
 export function getGameModeLabel(mode: GameMode): string {
+  const lang = getCurLang();
   switch (mode) {
     case GameMode.CLASSIC:
-      return 'Klassik';
+      return lang === 'ru' ? 'Классика' : lang === 'en' ? 'Classic' : 'Klassik';
     case GameMode.BLITZ:
-      return 'Blits (3 daqiqa)';
+      return lang === 'ru' ? 'Блиц (3 мин)' : lang === 'en' ? 'Blitz (3m)' : 'Blits (3 daqiqa)';
     case GameMode.RAPID:
-      return 'Rapid (10 daqiqa)';
+      return lang === 'ru' ? 'Рапид (10 мин)' : lang === 'en' ? 'Rapid (10m)' : 'Rapid (10 daqiqa)';
     case GameMode.GIVEAWAY:
-      return 'Teskari shashka (Poddavki)';
+      return lang === 'ru' ? 'Поддавки' : lang === 'en' ? 'Giveaway' : 'Teskari shashka (Poddavki)';
     case GameMode.BOT:
-      return "Botga qarshi o'yin";
+      return lang === 'ru' ? 'Игра против бота' : lang === 'en' ? 'Play vs Bot' : "Botga qarshi o'yin";
     case GameMode.CUSTOM:
-      return 'Maxsus rejim';
+      return lang === 'ru' ? 'Особый режим' : lang === 'en' ? 'Custom mode' : 'Maxsus rejim';
     default:
       return mode;
   }
@@ -61,28 +71,61 @@ export function getGameModeLabel(mode: GameMode): string {
 
 export function getResultReasonLabel(reason: ResultReason | null | undefined): string {
   if (!reason) return '';
-  switch (reason) {
-    case ResultReason.ALL_PIECES_CAPTURED:
-      return 'Barcha toshlar yeb bo\'lindi';
-    case ResultReason.NO_LEGAL_MOVES:
-      return 'Yurish uchun imkoniyat yo\'q (qamal)';
-    case ResultReason.RESIGNATION:
-      return 'O\'yinchi taslim bo\'ldi';
-    case ResultReason.TIMEOUT:
-      return 'Vaqt tugadi';
-    case ResultReason.DISCONNECTION:
-      return 'Aloqa uzildi';
-    case ResultReason.DRAW_AGREEMENT:
-      return 'O\'zaro durang kelishuvi';
-    case ResultReason.THREEFOLD_REPETITION:
-      return '3 marta bir xil holat takrorlandi';
-    case ResultReason.FIFTEEN_MOVE_RULE:
-      return '15 yurish qoidasi (durang)';
-    case ResultReason.ABORTED_BY_SERVER:
-      return 'Server tomonidan to\'xtatildi';
-    default:
-      return reason;
+  const lang = getCurLang();
+
+  const labels: Record<ResultReason, { uz: string; ru: string; en: string }> = {
+    [ResultReason.ALL_PIECES_CAPTURED]: {
+      uz: "Barcha toshlar yeb bo'lindi",
+      ru: 'Все шашки уничтожены',
+      en: 'All pieces captured',
+    },
+    [ResultReason.NO_LEGAL_MOVES]: {
+      uz: "Yurish uchun imkoniyat yo'q (qamal)",
+      ru: 'Нет доступных ходов (запирание)',
+      en: 'No legal moves available (locked)',
+    },
+    [ResultReason.RESIGNATION]: {
+      uz: "O'yinchi taslim bo'ldi",
+      ru: 'Игрок сдался',
+      en: 'Player resigned',
+    },
+    [ResultReason.TIMEOUT]: {
+      uz: 'Vaqt tugadi',
+      ru: 'Время вышло',
+      en: 'Time is up',
+    },
+    [ResultReason.DISCONNECTION]: {
+      uz: 'Aloqa uzildi',
+      ru: 'Связь прервана',
+      en: 'Connection lost',
+    },
+    [ResultReason.DRAW_AGREEMENT]: {
+      uz: "O'zaro durang kelishuvi",
+      ru: 'Ничья по согласию сторон',
+      en: 'Draw by mutual agreement',
+    },
+    [ResultReason.THREEFOLD_REPETITION]: {
+      uz: '3 marta bir xil holat takrorlandi',
+      ru: 'Троекратное повторение позиции',
+      en: 'Threefold repetition of position',
+    },
+    [ResultReason.FIFTEEN_MOVE_RULE]: {
+      uz: '15 yurish qoidasi (durang)',
+      ru: 'Правило 15 ходов (ничья)',
+      en: '15-move rule (draw)',
+    },
+    [ResultReason.ABORTED_BY_SERVER]: {
+      uz: "Server tomonidan to'xtatildi",
+      ru: 'Прервано сервером',
+      en: 'Aborted by server',
+    },
+  };
+
+  const item = labels[reason];
+  if (item) {
+    return item[lang] || item.uz;
   }
+  return reason;
 }
 
 export function getGameResultLabel(result: GameResult | null | undefined, myColor?: string): {
@@ -92,20 +135,27 @@ export function getGameResultLabel(result: GameResult | null | undefined, myColo
   isDraw: boolean;
   variant: 'success' | 'danger' | 'warning' | 'neutral';
 } {
+  const lang = getCurLang();
+
   if (!result) {
-    return { title: 'O\'yinda', isWin: false, isLoss: false, isDraw: false, variant: 'neutral' };
+    const title = lang === 'ru' ? 'В игре' : lang === 'en' ? 'In progress' : "O'yinda";
+    return { title, isWin: false, isLoss: false, isDraw: false, variant: 'neutral' };
   }
 
   if (result === GameResult.DRAW) {
-    return { title: 'Durang', isWin: false, isLoss: false, isDraw: true, variant: 'warning' };
+    const title = lang === 'ru' ? 'Ничья!' : lang === 'en' ? 'Draw!' : 'Durang!';
+    return { title, isWin: false, isLoss: false, isDraw: true, variant: 'warning' };
   }
 
   const whiteWon = result === GameResult.WHITE_WON;
   const iWon = myColor ? (myColor === 'WHITE' ? whiteWon : !whiteWon) : whiteWon;
 
   if (iWon) {
-    return { title: 'G\'alaba!', isWin: true, isLoss: false, isDraw: false, variant: 'success' };
+    const title = lang === 'ru' ? 'Победа!' : lang === 'en' ? 'Victory!' : "G'alaba!";
+    return { title, isWin: true, isLoss: false, isDraw: false, variant: 'success' };
   } else {
-    return { title: 'Mag\'lubiyat', isWin: false, isLoss: true, isDraw: false, variant: 'danger' };
+    const title = lang === 'ru' ? 'Поражение!' : lang === 'en' ? 'Defeat!' : "Mag'lubiyat!";
+    return { title, isWin: false, isLoss: true, isDraw: false, variant: 'danger' };
   }
 }
+

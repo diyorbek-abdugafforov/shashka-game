@@ -9,6 +9,7 @@ import { useAuthStore } from '../stores/auth';
 import { formatNumber } from '../utils/format';
 import { triggerHaptic } from '../utils/telegram';
 import { playCoinSound, playWinSound, playClickSound, playLoseSound } from '../utils/sound';
+import { useTranslation, Language } from '../i18n';
 import {
   Sparkles,
   Gift,
@@ -33,55 +34,148 @@ interface Puzzle {
   explanation: string;
 }
 
-const PUZZLES: Puzzle[] = [
-  {
-    id: 1,
-    title: 'Uch karra zarba (Kombinatsiya)',
-    description: 'Oqlar bilan yurib bitta harakatda qora toshlarni ketma-ket urib damkaga chiqing.',
-    diagram: '⚪ c3 toshidan e5 va g7 orqali h8 damka maydoniga',
-    question: "Qaysi katak orqali zarba beriladi?",
-    options: [
-      { id: 'a', text: 'c3 -> e5 -> g7 -> h8 (Uchta tosh uriladi)', isCorrect: true },
-      { id: 'b', text: 'd2 -> e3 oddiy yurish', isCorrect: false },
-      { id: 'c', text: 'b4 -> c5 zarbasiz yurish', isCorrect: false },
-    ],
-    reward: 300,
-    explanation: "Ajoyib! c3 dan ketma-ket 3 ta tosh urilib, h8 katagida damkaga aylanadi!",
-  },
-  {
-    id: 2,
-    title: "Tosh qurbon qilish (Podsechka)",
-    description: "Raqibni majburiy urishga majburlab, so'ngra uning orqa qatorini yorib o'ting.",
-    diagram: '⚪ e3 toshi f4 ga beriladi, qora tosh f4 ni urishga majbur',
-    question: "Kombinatsiyani qanday boshlash kerak?",
-    options: [
-      { id: 'a', text: "e3 toshini f4 ga qurbon qilish", isCorrect: true },
-      { id: 'b', text: "c1 toshini d2 ga surish", isCorrect: false },
-      { id: 'c', text: "Damkadan qochish", isCorrect: false },
-    ],
-    reward: 400,
-    explanation: "To'g'ri! Shashka qoidasiga ko'ra urish majburiy, shuning uchun raqib qopqonga tushadi!",
-  },
-  {
-    id: 3,
-    title: "Damkani qamab qo'yish (Qopqon)",
-    description: "Katta yo'ldagi (katta diagonal) raqib damkasini chetga surib burchakka qamash.",
-    diagram: '⚪ a1-h8 katta yo‘li nazoratga olinadi',
-    question: "Damkani zararsizlantirish uchun eng to'g'ri yo'l qaysi?",
-    options: [
-      { id: 'a', text: "Katta yo'lni (a1-h8) to'sib qo'yish", isCorrect: true },
-      { id: 'b', text: "Chetga qochish", isCorrect: false },
-      { id: 'c', text: "Toshni bekorga berish", isCorrect: false },
-    ],
-    reward: 500,
-    explanation: "Barakalla! Katta yo'lni qo'lga kiritgan tomon shashkada 95% hollarda g'alaba qozonadi!",
-  },
-];
+const PUZZLES_DATA: Record<Language, Puzzle[]> = {
+  uz: [
+    {
+      id: 1,
+      title: 'Uch karra zarba (Kombinatsiya)',
+      description: 'Oqlar bilan yurib bitta harakatda qora toshlarni ketma-ket urib damkaga chiqing.',
+      diagram: '⚪ c3 toshidan e5 va g7 orqali h8 damka maydoniga',
+      question: "Qaysi katak orqali zarba beriladi?",
+      options: [
+        { id: 'a', text: 'c3 -> e5 -> g7 -> h8 (Uchta tosh uriladi)', isCorrect: true },
+        { id: 'b', text: 'd2 -> e3 oddiy yurish', isCorrect: false },
+        { id: 'c', text: 'b4 -> c5 zarbasiz yurish', isCorrect: false },
+      ],
+      reward: 300,
+      explanation: "Ajoyib! c3 dan ketma-ket 3 ta tosh urilib, h8 katagida damkaga aylanadi!",
+    },
+    {
+      id: 2,
+      title: "Tosh qurbon qilish (Podsechka)",
+      description: "Raqibni majburiy urishga majburlab, so'ngra uning orqa qatorini yorib o'ting.",
+      diagram: '⚪ e3 toshi f4 ga beriladi, qora tosh f4 ni urishga majbur',
+      question: "Kombinatsiyani qanday boshlash kerak?",
+      options: [
+        { id: 'a', text: "e3 toshini f4 ga qurbon qilish", isCorrect: true },
+        { id: 'b', text: "c1 toshini d2 ga surish", isCorrect: false },
+        { id: 'c', text: "Damkadan qochish", isCorrect: false },
+      ],
+      reward: 400,
+      explanation: "To'g'ri! Shashka qoidasiga ko'ra urish majburiy, shuning uchun raqib qopqonga tushadi!",
+    },
+    {
+      id: 3,
+      title: "Damkani qamab qo'yish (Qopqon)",
+      description: "Katta yo'ldagi (katta diagonal) raqib damkasini chetga surib burchakka qamash.",
+      diagram: '⚪ a1-h8 katta yo‘li nazoratga olinadi',
+      question: "Damkani zararsizlantirish uchun eng to'g'ri yo'l qaysi?",
+      options: [
+        { id: 'a', text: "Katta yo'lni (a1-h8) to'sib qo'yish", isCorrect: true },
+        { id: 'b', text: "Chetga qochish", isCorrect: false },
+        { id: 'c', text: "Toshni bekorga berish", isCorrect: false },
+      ],
+      reward: 500,
+      explanation: "Barakalla! Katta yo'lni qo'lga kiritgan tomon shashkada 95% hollarda g'alaba qozonadi!",
+    },
+  ],
+  ru: [
+    {
+      id: 1,
+      title: 'Тройной удар (Комбинация)',
+      description: 'Белыми в один ход забейте шашки соперника и пройдите в дамки.',
+      diagram: '⚪ c3 через e5 и g7 на поле h8 в дамки',
+      question: 'Какой путь удара правильный?',
+      options: [
+        { id: 'a', text: 'c3 -> e5 -> g7 -> h8 (Бьются 3 шашки)', isCorrect: true },
+        { id: 'b', text: 'd2 -> e3 тихий ход', isCorrect: false },
+        { id: 'c', text: 'b4 -> c5 обычный ход', isCorrect: false },
+      ],
+      reward: 300,
+      explanation: 'Отлично! С c3 снимаются 3 шашки и шашка превращается в дамку на h8!',
+    },
+    {
+      id: 2,
+      title: 'Жертва шашки (Подсечка)',
+      description: 'Заставьте соперника бить вашу шашку и прорвите его оборону.',
+      diagram: '⚪ шашка e3 отдается на f4, черные обязаны бить',
+      question: 'С чего начать комбинацию?',
+      options: [
+        { id: 'a', text: 'Пожертвовать шашку e3 на f4', isCorrect: true },
+        { id: 'b', text: 'Пойти c1 на d2', isCorrect: false },
+        { id: 'c', text: 'Убежать от дамки', isCorrect: false },
+      ],
+      reward: 400,
+      explanation: 'Верно! По правилам русских шашек бой обязателен, противник в ловушке!',
+    },
+    {
+      id: 3,
+      title: 'Поимка дамки (Капкан)',
+      description: 'Перекройте главную дорогу сопернику и зажмите дамку в углу.',
+      diagram: '⚪ контроль большой диагонали a1-h8',
+      question: 'Как надежно нейтрализовать дамку соперника?',
+      options: [
+        { id: 'a', text: 'Перекрыть большую дорогу (a1-h8)', isCorrect: true },
+        { id: 'b', text: 'Убежать на край', isCorrect: false },
+        { id: 'c', text: 'Отдать шашку зря', isCorrect: false },
+      ],
+      reward: 500,
+      explanation: 'Молодец! Занятие большой дороги обеспечивает победу в 95% партий!',
+    },
+  ],
+  en: [
+    {
+      id: 1,
+      title: 'Triple Jump Combination',
+      description: 'Play with White, jump 3 opponent pieces in a single sequence and become a King.',
+      diagram: '⚪ c3 through e5 and g7 to h8 King square',
+      question: 'Which move sequence is the correct strike?',
+      options: [
+        { id: 'a', text: 'c3 -> e5 -> g7 -> h8 (Capture 3 pieces)', isCorrect: true },
+        { id: 'b', text: 'd2 -> e3 quiet move', isCorrect: false },
+        { id: 'c', text: 'b4 -> c5 normal move', isCorrect: false },
+      ],
+      reward: 300,
+      explanation: 'Awesome! Capturing 3 checkers from c3 promotes directly to King on h8!',
+    },
+    {
+      id: 2,
+      title: 'Piece Sacrifice (Tactic)',
+      description: 'Force the opponent to capture your piece and break through their back rank.',
+      diagram: '⚪ e3 piece sacrificed to f4, black must take',
+      question: 'How should you initiate this tactic?',
+      options: [
+        { id: 'a', text: 'Sacrifice e3 piece to f4', isCorrect: true },
+        { id: 'b', text: 'Move c1 to d2', isCorrect: false },
+        { id: 'c', text: 'Retreat', isCorrect: false },
+      ],
+      reward: 400,
+      explanation: 'Correct! Capture is mandatory in checkers, so the opponent falls right into the trap!',
+    },
+    {
+      id: 3,
+      title: 'Trapping the King',
+      description: 'Control the main diagonal (a1-h8) and corner the opponent king.',
+      diagram: '⚪ control the main diagonal a1-h8',
+      question: 'What is the most effective way to neutralize the king?',
+      options: [
+        { id: 'a', text: 'Block the main diagonal (a1-h8)', isCorrect: true },
+        { id: 'b', text: 'Flee to edge', isCorrect: false },
+        { id: 'c', text: 'Give up a piece for nothing', isCorrect: false },
+      ],
+      reward: 500,
+      explanation: 'Brilliant! Controlling the long diagonal wins Russian checkers games 95% of the time!',
+    },
+  ],
+};
 
 export const MiniGamesPage: React.FC = () => {
   const navigate = useNavigate();
   const { wallet } = useAuth();
   const { updateBalance } = useAuthStore();
+  const { t, language } = useTranslation();
+
+  const currentPuzzles = PUZZLES_DATA[language as Language] || PUZZLES_DATA.uz;
 
   const [activeTab, setActiveTab] = useState<'wheel' | 'puzzles'>('wheel');
   const [isRolling, setIsRolling] = useState(false);
@@ -121,7 +215,13 @@ export const MiniGamesPage: React.FC = () => {
   const handleSolvePuzzle = (puzzle: Puzzle) => {
     const chosenId = selectedAnswers[puzzle.id];
     if (!chosenId) {
-      alert("Iltimos, avval javob variantlaridan birini tanlang!");
+      alert(
+        language === 'ru'
+          ? 'Пожалуйста, выберите вариант ответа!'
+          : language === 'en'
+            ? 'Please select an option first!'
+            : "Iltimos, avval javob variantlaridan birini tanlang!",
+      );
       return;
     }
 
@@ -148,7 +248,7 @@ export const MiniGamesPage: React.FC = () => {
       playLoseSound();
       setFeedback((prev) => ({
         ...prev,
-        [puzzle.id]: { correct: false, msg: "Noto'g'ri javob. Qayta urinib ko'ring!" },
+        [puzzle.id]: { correct: false, msg: t('mini_puzzle_wrong') },
       }));
     }
   };
@@ -156,7 +256,7 @@ export const MiniGamesPage: React.FC = () => {
   return (
     <PageContainer
       headerProps={{
-        title: "Mini O'yinlar",
+        title: t('mini_title'),
         showBack: true,
         onBack: () => navigate(-1),
         showBalance: true,
@@ -178,7 +278,7 @@ export const MiniGamesPage: React.FC = () => {
             )}
           >
             <Dices className="w-4 h-4" />
-            <span>Omad Zari / Bonus</span>
+            <span>{t('mini_tab_dice')}</span>
           </button>
 
           <button
@@ -194,7 +294,7 @@ export const MiniGamesPage: React.FC = () => {
             )}
           >
             <Trophy className="w-4 h-4" />
-            <span>Taktik Jumboqlar</span>
+            <span>{t('mini_tab_puzzles')}</span>
           </button>
         </div>
 
@@ -211,15 +311,15 @@ export const MiniGamesPage: React.FC = () => {
                 />
               </div>
 
-              <h3 className="text-lg font-black text-zinc-100">Kunlik Omad Zari</h3>
+              <h3 className="text-lg font-black text-zinc-100">{t('mini_dice_title')}</h3>
               <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
-                Zarni tashlang va 150 dan 1000 gacha bepul tangalarni qo'lga kiriting!
+                {t('mini_dice_desc')}
               </p>
 
               {lastReward !== null && (
                 <div className="my-4 p-3 bg-emerald-950/80 border border-emerald-600/80 rounded-xl text-emerald-300 text-sm font-black animate-fade-in flex items-center justify-center gap-2">
                   <Coins className="w-5 h-5 text-amber-400" />
-                  <span>+{formatNumber(lastReward)} tanga qo'shildi!</span>
+                  <span>+{formatNumber(lastReward)} {t('coins')}!</span>
                 </div>
               )}
 
@@ -231,26 +331,32 @@ export const MiniGamesPage: React.FC = () => {
                 className="mt-4 w-full text-sm font-bold shadow-glow"
                 leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
               >
-                {isRolling ? 'Zar aylanmoqda...' : 'Zarni tashlash (Tanga olish)'}
+                {isRolling ? t('mini_dice_rolling') : t('mini_dice_roll_btn')}
               </Button>
             </Card>
 
             <Card className="p-4 bg-zinc-900/60 border-zinc-800">
               <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
-                Mukofotlar jadvali
+                {language === 'ru' ? 'Таблица наград' : language === 'en' ? 'Reward Table' : 'Mukofotlar jadvali'}
               </h4>
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="p-2.5 rounded-xl bg-zinc-800/80 border border-zinc-700/60">
-                  <span className="text-zinc-400 block text-[10px]">1-daraja</span>
-                  <span className="font-bold text-amber-300">150 tanga</span>
+                  <span className="text-zinc-400 block text-[10px]">
+                    {language === 'ru' ? '1-уровень' : language === 'en' ? 'Tier 1' : '1-daraja'}
+                  </span>
+                  <span className="font-bold text-amber-300">150 {t('coins')}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-zinc-800/80 border border-zinc-700/60">
-                  <span className="text-zinc-400 block text-[10px]">2-daraja</span>
-                  <span className="font-bold text-amber-300">300 tanga</span>
+                  <span className="text-zinc-400 block text-[10px]">
+                    {language === 'ru' ? '2-уровень' : language === 'en' ? 'Tier 2' : '2-daraja'}
+                  </span>
+                  <span className="font-bold text-amber-300">300 {t('coins')}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-zinc-800/80 border border-zinc-700/60">
-                  <span className="text-zinc-400 block text-[10px]">Jekpot</span>
-                  <span className="font-bold text-emerald-400">1000 tanga</span>
+                  <span className="text-zinc-400 block text-[10px]">
+                    {language === 'ru' ? 'Джекпот' : language === 'en' ? 'Jackpot' : 'Jekpot'}
+                  </span>
+                  <span className="font-bold text-emerald-400">1000 {t('coins')}</span>
                 </div>
               </div>
             </Card>
@@ -260,7 +366,7 @@ export const MiniGamesPage: React.FC = () => {
         {/* TAB 2: TACTICAL CHECKERS PUZZLES */}
         {activeTab === 'puzzles' && (
           <div className="flex flex-col gap-3.5">
-            {PUZZLES.map((puzzle) => {
+            {currentPuzzles.map((puzzle) => {
               const isSolved = solvedPuzzles.includes(puzzle.id);
               const fb = feedback[puzzle.id];
 
@@ -273,11 +379,11 @@ export const MiniGamesPage: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-indigo-400">
-                          Jumboq #{puzzle.id}
+                          {language === 'ru' ? 'Задача' : language === 'en' ? 'Puzzle' : 'Jumboq'} #{puzzle.id}
                         </span>
                         {isSolved && (
                           <Badge variant="success" size="sm">
-                            Yechildi
+                            {t('mini_puzzle_solved')}
                           </Badge>
                         )}
                       </div>
@@ -345,7 +451,7 @@ export const MiniGamesPage: React.FC = () => {
                     onClick={() => handleSolvePuzzle(puzzle)}
                     className="mt-1"
                   >
-                    {isSolved ? 'Qayta tekshirish' : 'Javobni tasdiqlash'}
+                    {isSolved ? t('mini_puzzle_retry') : t('mini_puzzle_submit')}
                   </Button>
                 </Card>
               );

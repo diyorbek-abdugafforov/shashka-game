@@ -13,11 +13,13 @@ import { useGameStore, BotDifficulty } from '../stores/game';
 import { useAuth } from '../hooks/useAuth';
 import { triggerHaptic } from '../utils/telegram';
 import { Bot, User, Sparkles } from 'lucide-react';
+import { useTranslation } from '../i18n';
 import { cn } from '../utils/cn';
 
 export const BotGamePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t, language } = useTranslation();
   const [selectedDifficulty, setSelectedDifficulty] = useState<BotDifficulty>('medium');
 
   const {
@@ -69,10 +71,26 @@ export const BotGamePage: React.FC = () => {
     return 1800;
   };
 
+  const getDiffLabel = (diff: BotDifficulty) => {
+    if (diff === 'easy') return language === 'ru' ? 'Легкий' : language === 'en' ? 'Easy' : 'Oson';
+    if (diff === 'medium') return language === 'ru' ? 'Средний' : language === 'en' ? 'Medium' : "O'rta";
+    return language === 'ru' ? 'Сложный' : language === 'en' ? 'Hard' : 'Qiyin';
+  };
+
+  const getBotName = () => {
+    const diffStr =
+      selectedDifficulty === 'easy'
+        ? language === 'ru' ? 'Легкий' : language === 'en' ? 'Easy' : 'Oson'
+        : selectedDifficulty === 'medium'
+          ? language === 'ru' ? 'Средний' : language === 'en' ? 'Medium' : "O'rta"
+          : language === 'ru' ? 'Гроссмейстер' : language === 'en' ? 'Grandmaster' : 'Grossmeyster';
+    return `Bot (${diffStr})`;
+  };
+
   return (
     <PageContainer
       headerProps={{
-        title: 'Botga qarshi o\'yin',
+        title: language === 'ru' ? 'Игра против бота' : language === 'en' ? 'Practice vs Bot' : "Botga qarshi o'yin",
         showBack: true,
         onBack: () => navigate('/'),
       }}
@@ -92,16 +110,14 @@ export const BotGamePage: React.FC = () => {
                   : 'text-zinc-400 hover:text-zinc-200',
               )}
             >
-              {diff === 'easy' && 'Oson'}
-              {diff === 'medium' && 'O\'rta'}
-              {diff === 'hard' && 'Qiyin'}
+              {getDiffLabel(diff)}
             </button>
           ))}
         </div>
 
         {/* Bot Opponent Info (Top) */}
         <PlayerInfo
-          displayName={`Bot (${selectedDifficulty === 'easy' ? 'Oson' : selectedDifficulty === 'medium' ? 'O\'rta' : 'Grossmeyster'})`}
+          displayName={getBotName()}
           color={PlayerColor.BLACK}
           rating={getBotRating()}
           timeLeftMs={blackTimeLeftMs}

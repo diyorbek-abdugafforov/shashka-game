@@ -12,6 +12,7 @@ import { shopApi } from '../api/shop';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../stores/auth';
 import { useSettingsStore, BoardThemeId } from '../stores/settings';
+import { useTranslation } from '../i18n';
 import { formatNumber } from '../utils/format';
 import { triggerHaptic } from '../utils/telegram';
 import { playCoinSound, playClickSound } from '../utils/sound';
@@ -34,6 +35,7 @@ export const ShopPage: React.FC = () => {
   const { wallet } = useAuth();
   const { updateBalance } = useAuthStore();
   const { boardTheme, setBoardTheme } = useSettingsStore();
+  const { t } = useTranslation();
 
   const [selectedCategory, setSelectedCategory] = useState<ShopItemCategory>(
     ShopItemCategory.BOARD_THEME,
@@ -148,7 +150,7 @@ export const ShopPage: React.FC = () => {
     const balance = wallet?.balance ?? 0;
     if (balance < item.price) {
       triggerHaptic('error');
-      alert(`Mablag' yetarli emas! Sizda ${formatNumber(balance)} tanga bor. Mini-o'yinlar orqali tanga yig'ishingiz mumkin.`);
+      alert(t('shop_insufficient'));
       return;
     }
 
@@ -162,7 +164,7 @@ export const ShopPage: React.FC = () => {
       setBoardTheme(item.id as BoardThemeId);
     }
 
-    setSuccessMessage(`Tabriklaymiz! "${item.name}" muvaffaqiyatli xarid qilindi va o'rnatildi!`);
+    setSuccessMessage(`"${item.name}" ${t('shop_success_buy')}`);
     setTimeout(() => setSuccessMessage(null), 3500);
   };
 
@@ -171,7 +173,7 @@ export const ShopPage: React.FC = () => {
     playClickSound();
     if (item.category === ShopItemCategory.BOARD_THEME) {
       setBoardTheme(item.id as BoardThemeId);
-      setSuccessMessage(`"${item.name}" doskasi tanlandi!`);
+      setSuccessMessage(`"${item.name}" ${t('shop_success_equip')}`);
       setTimeout(() => setSuccessMessage(null), 3000);
     }
   };
@@ -179,7 +181,7 @@ export const ShopPage: React.FC = () => {
   return (
     <PageContainer
       headerProps={{
-        title: "Do'kon",
+        title: t('shop_title'),
         showBack: true,
         onBack: () => navigate(-1),
         showBalance: true,
@@ -193,9 +195,9 @@ export const ShopPage: React.FC = () => {
               <Gift className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-zinc-100">Bepul tangalar kerakmi?</h3>
+              <h3 className="text-xs font-bold text-zinc-100">{t('shop_free_coins_banner')}</h3>
               <p className="text-[11px] text-zinc-300">
-                Omad g'ildiragi va jumboqlarni yechib tanga yuting!
+                {t('shop_free_coins_desc')}
               </p>
             </div>
           </div>
@@ -205,7 +207,7 @@ export const ShopPage: React.FC = () => {
             onClick={() => navigate('/mini-games')}
             className="text-xs whitespace-nowrap ml-2"
           >
-            O'ynash
+            {t('shop_play_btn')}
           </Button>
         </Card>
 
@@ -231,7 +233,7 @@ export const ShopPage: React.FC = () => {
                 : 'text-zinc-400 hover:text-zinc-200',
             )}
           >
-            Doskalar
+            {t('shop_tab_boards')}
           </button>
           <button
             onClick={() => {
@@ -245,7 +247,7 @@ export const ShopPage: React.FC = () => {
                 : 'text-zinc-400 hover:text-zinc-200',
             )}
           >
-            Toshlar
+            {t('shop_tab_pieces')}
           </button>
           <button
             onClick={() => {
@@ -259,7 +261,7 @@ export const ShopPage: React.FC = () => {
                 : 'text-zinc-400 hover:text-zinc-200',
             )}
           >
-            Ramkalar
+            {t('shop_tab_frames')}
           </button>
         </div>
 
@@ -273,7 +275,7 @@ export const ShopPage: React.FC = () => {
             </>
           ) : isError ? (
             <ErrorState
-              title="Katalog yuklanmadi"
+              title={t('retry')}
               message="Internet aloqasini tekshiring."
               onRetry={refetch}
             />
@@ -304,12 +306,12 @@ export const ShopPage: React.FC = () => {
                           <h4 className="text-sm font-bold text-zinc-100">{item.name}</h4>
                           {isEquipped && (
                             <Badge variant="success" size="sm">
-                              Faol
+                              {t('shop_active')}
                             </Badge>
                           )}
                           {isOwned && !isEquipped && (
                             <Badge variant="neutral" size="sm">
-                              Sotib olingan
+                              {t('shop_owned')}
                             </Badge>
                           )}
                         </div>
@@ -323,12 +325,12 @@ export const ShopPage: React.FC = () => {
                   <div className="flex items-center justify-between pt-3 border-t border-zinc-850">
                     <div className="flex items-center gap-1.5 font-bold text-amber-300 text-sm">
                       <Coins className="w-4 h-4 text-amber-400" />
-                      <span>{formatNumber(item.price)} tanga</span>
+                      <span>{formatNumber(item.price)} {t('coins')}</span>
                     </div>
 
                     {isEquipped ? (
                       <Button variant="secondary" size="sm" disabled className="text-emerald-400 border-emerald-800">
-                        <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> Tanlangan
+                        <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> {t('shop_active')}
                       </Button>
                     ) : isOwned ? (
                       <Button
@@ -336,7 +338,7 @@ export const ShopPage: React.FC = () => {
                         size="sm"
                         onClick={() => handleEquip(item)}
                       >
-                        O'rnatish
+                        {t('shop_equip')}
                       </Button>
                     ) : (
                       <Button
@@ -345,7 +347,7 @@ export const ShopPage: React.FC = () => {
                         onClick={() => handlePurchase(item)}
                         leftIcon={<Sparkles className="w-3.5 h-3.5 text-amber-300" />}
                       >
-                        Xarid qilish
+                        {t('shop_buy')}
                       </Button>
                     )}
                   </div>
