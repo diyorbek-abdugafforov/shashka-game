@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState, useRef, useCallb
 import { io, Socket } from 'socket.io-client';
 import {
   GameMode,
+  PlayerColor,
+  GameStatus,
   type BoardCoordinate,
   type MatchFoundPayload,
   type GameStatePayload,
@@ -10,6 +12,7 @@ import {
   type QueueJoinedPayload,
   type SocketErrorPayload,
 } from '@shashka/shared-types';
+import { createInitialBoard } from '@shashka/game-engine';
 import { useAuthStore } from '../stores/auth';
 import { useGameStore } from '../stores/game';
 import { triggerHaptic } from '../utils/telegram';
@@ -196,6 +199,63 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIncomingChallenge(null);
       setOutgoingChallenge(null);
       triggerHaptic('success');
+
+      // Preload game state into store so OnlineGamePage opens IMMEDIATELY with board & players ready!
+      const initialBoard = createInitialBoard();
+      const isWhite = payload.color === PlayerColor.WHITE;
+      const currentUser = useAuthStore.getState().user;
+
+      setOnlineGameState(
+        {
+          game: {
+            id: payload.gameId,
+            mode: GameMode.CLASSIC,
+            status: GameStatus.IN_PROGRESS,
+            boardState: { matrix: initialBoard, fen: '' } as any,
+            currentTurn: PlayerColor.WHITE,
+            whitePlayerId: isWhite ? currentUser?.id || 'player-white' : payload.opponent?.id,
+            blackPlayerId: isWhite ? payload.opponent?.id : currentUser?.id || 'player-black',
+            timeControl: { initialSeconds: 180, incrementSeconds: 2 },
+            whiteTimeLeftMs: 180000,
+            blackTimeLeftMs: 180000,
+            startedAt: new Date().toISOString(),
+            moveCount: 0,
+          } as any,
+          moves: [],
+          whitePlayer: isWhite
+            ? {
+                id: currentUser?.id || '',
+                displayName: currentUser?.displayName || 'Siz',
+                avatarUrl: currentUser?.avatarUrl || null,
+                rating: (currentUser as any)?.rating || 1200,
+                isOnline: true,
+              }
+            : {
+                id: payload.opponent?.id || '',
+                displayName: payload.opponent?.displayName || 'Raqib',
+                avatarUrl: payload.opponent?.avatarUrl || null,
+                rating: payload.opponent?.rating || 1200,
+                isOnline: true,
+              },
+          blackPlayer: isWhite
+            ? {
+                id: payload.opponent?.id || '',
+                displayName: payload.opponent?.displayName || 'Raqib',
+                avatarUrl: payload.opponent?.avatarUrl || null,
+                rating: payload.opponent?.rating || 1200,
+                isOnline: true,
+              }
+            : {
+                id: currentUser?.id || '',
+                displayName: currentUser?.displayName || 'Siz',
+                avatarUrl: currentUser?.avatarUrl || null,
+                rating: (currentUser as any)?.rating || 1200,
+                isOnline: true,
+              },
+        },
+        currentUser?.id,
+      );
+
       // Auto navigate both users to match!
       router.navigate(`/game/online/${payload.gameId}`);
     });

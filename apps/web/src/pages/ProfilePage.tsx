@@ -225,28 +225,55 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-center">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-center flex flex-col justify-center">
             <span className="text-[10px] text-zinc-400 block">ELO Reyting</span>
-            <span className="text-sm font-black text-indigo-400 mt-0.5 block">
-              {stats?.currentRating || 800}
+            <span className="text-base font-black text-indigo-400 mt-0.5 block">
+              {stats?.currentRating ?? (user ? (user as any).rating || 1200 : 1200)}
             </span>
           </div>
 
-          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-center">
+          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-center flex flex-col justify-center">
             <span className="text-[10px] text-zinc-400 block">G'alabalar</span>
-            <span className="text-sm font-black text-amber-400 mt-0.5 block">
-              {stats?.wins || 0}
+            <span className="text-base font-black text-emerald-400 mt-0.5 block">
+              {stats?.wins ?? 0}
             </span>
           </div>
 
-          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-center">
+          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-center flex flex-col justify-center">
+            <span className="text-[10px] text-zinc-400 block">Jami o'yinlar</span>
+            <span className="text-base font-black text-amber-400 mt-0.5 block">
+              {stats?.gamesPlayed ?? 0}
+            </span>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-center flex flex-col justify-center">
             <span className="text-[10px] text-zinc-400 block">Tangalar</span>
-            <span className="text-sm font-black text-sky-400 mt-0.5 block">
-              {wallet?.balance || 351}
+            <span className="text-base font-black text-sky-400 mt-0.5 block">
+              {wallet?.balance ?? 100}
             </span>
           </div>
         </div>
+
+        {/* View Game History Button */}
+        <button
+          onClick={() => {
+            triggerHaptic('medium');
+            navigate('/history');
+          }}
+          className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-indigo-900/40 via-zinc-900 to-zinc-900 border border-indigo-700/40 hover:border-indigo-500/60 text-xs font-bold text-zinc-200 flex items-center justify-between transition-all active:scale-[0.99] shadow-md"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600/30 text-indigo-400 flex items-center justify-center">
+              🎬
+            </div>
+            <div className="text-left">
+              <span className="block text-zinc-100 font-bold">O'yinlar tarixi va takrorlar</span>
+              <span className="block text-[10px] text-zinc-400">Barcha o'ynalgan o'yinlarni qadamma-qadam ko'rish</span>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-indigo-400 shrink-0" />
+        </button>
       </div>
     </PageContainer>
   );

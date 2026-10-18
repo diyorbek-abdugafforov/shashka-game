@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlayerColor } from '@shashka/shared-types';
+import { PlayerColor, GameMode } from '@shashka/shared-types';
 import { PageContainer } from '../components/layout/PageContainer';
 import { Board } from '../components/game/Board';
 import { PlayerInfo } from '../components/game/PlayerInfo';
@@ -11,6 +11,7 @@ import { GameResultModal } from '../components/game/GameResult';
 import { Button } from '../components/ui/Button';
 import { useGameStore, BotDifficulty } from '../stores/game';
 import { useAuth } from '../hooks/useAuth';
+import { gamesApi } from '../api/games';
 import { triggerHaptic } from '../utils/telegram';
 import { Bot, User, Sparkles } from 'lucide-react';
 import { useTranslation } from '../i18n';
@@ -21,6 +22,7 @@ export const BotGamePage: React.FC = () => {
   const { user } = useAuth();
   const { t, language } = useTranslation();
   const [selectedDifficulty, setSelectedDifficulty] = useState<BotDifficulty>('medium');
+  const [recordedGameId, setRecordedGameId] = useState<string | null>(null);
 
   const {
     board,
@@ -45,6 +47,7 @@ export const BotGamePage: React.FC = () => {
   } = useGameStore();
 
   useEffect(() => {
+    setRecordedGameId(null);
     initNewBotGame(selectedDifficulty);
   }, []);
 
@@ -57,9 +60,42 @@ export const BotGamePage: React.FC = () => {
     return () => clearInterval(interval);
   }, [isGameOver, tickTimer]);
 
+  // Persist completed game to Neon database so stats and game replay are fully saved!
+  useEffect(() => {
+    if (isGameOver && gameResult && resultReason && !recordedGameId) {
+      gamesApi
+        .recordCompletedGame({
+          userId: user?.id,
+          mode: GameMode.BOT,
+          difficulty: selectedDifficulty.toUpperCase(),
+          result: gameResult,
+          reason: resultReason,
+          moves: moveHistory.map((m, idx) => ({
+            moveNumber: idx + 1,
+            player: (m as any).player || (idx % 2 === 0 ? PlayerColor.WHITE : PlayerColor.BLACK),
+            from: m.from,
+            to: m.to,
+            captures: m.captures || [],
+            isPromotion: m.promotion,
+            notation: (m as any).notation,
+          })),
+        })
+        .then((res: any) => {
+          const id = res?.data?.id || res?.id;
+          if (id) {
+            setRecordedGameId(id);
+          }
+        })
+        .catch((err) => {
+          console.warn('Bot o\'yinini saqlashda xatolik:', err);
+        });
+    }
+  }, [isGameOver, gameResult, resultReason, recordedGameId, user?.id, selectedDifficulty, moveHistory]);
+
   const handleDifficultyChange = (diff: BotDifficulty) => {
     triggerHaptic('selection');
     setSelectedDifficulty(diff);
+    setRecordedGameId(null);
     initNewBotGame(diff);
   };
 
@@ -172,7 +208,12 @@ export const BotGamePage: React.FC = () => {
         result={gameResult}
         reason={resultReason}
         myColor={PlayerColor.WHITE}
-        onPlayAgain={() => initNewBotGame(selectedDifficulty)}
+        ratingChange={gameResult === 'WHITE_WON' ? 12 : gameResult === 'BLACK_WON' ? -8 : 0}
+        onReviewGame={recordedGameId ? () => navigate(`/games/${recordedGameId}`) : undefined}
+        onPlayAgain={() => {
+          setRecordedGameId(null);
+          initNewBotGame(selectedDifficulty);
+        }}
         onExit={() => navigate('/')}
       />
     </PageContainer>

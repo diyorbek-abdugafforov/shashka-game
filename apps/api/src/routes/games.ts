@@ -106,9 +106,67 @@ export const gameRoutes: FastifyPluginAsync = async (fastify) => {
     },
   );
 
+  // POST /api/games/record-completed
+  fastify.post(
+    '/record-completed',
+    {
+      preHandler: [optionalAuthenticate],
+    },
+    async (req, reply) => {
+      const authUser = req.user;
+      const body = req.body as any;
+      const userId = authUser?.id || body?.userId;
+
+      if (!userId) {
+        return reply.status(400).send({
+          success: false,
+          error: { message: 'Foydalanuvchi aniqlanmadi (userId talab qilinadi)' },
+        });
+      }
+
+      const game = await GameService.recordCompletedGame(userId, {
+        mode: body.mode || 'BOT',
+        difficulty: body.difficulty || 'MEDIUM',
+        result: body.result,
+        reason: body.reason,
+        moves: body.moves || [],
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        data: game,
+      };
+
+      return reply.status(201).send(response);
+    },
+  );
+
   // GET /api/games/history
   fastify.get(
     '/history',
+    {
+      preHandler: [authenticate, validateQuery(gameListQuerySchema)],
+    },
+    async (req, reply) => {
+      const authUser = req.user!;
+      const query = req.query as any;
+      const page = query?.page || 1;
+      const limit = query?.limit || 20;
+
+      const history = await GameService.getUserGameHistory(authUser.id, page, limit);
+
+      const response: ApiResponse = {
+        success: true,
+        data: history,
+      };
+
+      return reply.send(response);
+    },
+  );
+
+  // GET /api/games/my (alias for /history)
+  fastify.get(
+    '/my',
     {
       preHandler: [authenticate, validateQuery(gameListQuerySchema)],
     },
@@ -135,12 +193,15 @@ export const gameRoutes: FastifyPluginAsync = async (fastify) => {
     const game = await GameService.getGame(id);
     const moves = await GameService.getGameMoves(id);
 
+    const deserialized = GameService.deserializeBoard(game.boardState);
+    const serialized = GameService.serializeBoard(deserialized);
+
     const response: ApiResponse = {
       success: true,
       data: {
         game: {
           ...game,
-          boardState: GameService.deserializeBoard(game.boardState),
+          boardState: serialized,
         },
         moves,
         whitePlayer: game.whitePlayer,

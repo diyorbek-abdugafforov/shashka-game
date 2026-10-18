@@ -16,6 +16,7 @@ import {
   cloneBoard,
   getLegalMoves,
   getBestMove,
+  deserializeBoard,
   type Move as ValidatedMove,
   Player,
   type GameState as EngineGameState,
@@ -164,25 +165,46 @@ function applyMoveToBoard(board: BoardMatrix, move: ValidatedMove, turn: PlayerC
 }
 
 function normalizeBoard(rawBoard: any): BoardMatrix {
+  if (!Array.isArray(rawBoard)) return normalizeBoard(createInitialBoard());
   return rawBoard.map((row: any[]) =>
-    row.map((piece: any) => {
-      if (!piece) return null;
-      const color =
-        piece.color === PlayerColor.WHITE ||
-        piece.player === Player.WHITE ||
-        piece.color === 'WHITE' ||
-        piece.player === 'WHITE'
-          ? PlayerColor.WHITE
-          : PlayerColor.BLACK;
-      const type = piece.type === PieceType.KING ? PieceType.KING : PieceType.MAN;
-      return {
-        ...piece,
-        color,
-        player: color,
-        type,
-      };
-    }),
+    Array.isArray(row)
+      ? row.map((piece: any) => {
+          if (!piece) return null;
+          const color =
+            piece.color === PlayerColor.WHITE ||
+            piece.player === Player.WHITE ||
+            piece.color === 'WHITE' ||
+            piece.player === 'WHITE'
+              ? PlayerColor.WHITE
+              : PlayerColor.BLACK;
+          const type = piece.type === PieceType.KING ? PieceType.KING : PieceType.MAN;
+          return {
+            ...piece,
+            color,
+            player: color,
+            type,
+          };
+        })
+      : [],
   );
+}
+
+export function extractBoardMatrix(raw: any): BoardMatrix {
+  if (!raw) return normalizeBoard(createInitialBoard());
+  if (Array.isArray(raw) && raw.length === 8 && Array.isArray(raw[0])) {
+    return normalizeBoard(raw);
+  }
+  if (raw && typeof raw === 'object' && Array.isArray(raw.matrix) && raw.matrix.length === 8) {
+    return normalizeBoard(raw.matrix);
+  }
+  if (typeof raw === 'string') {
+    try {
+      return normalizeBoard(deserializeBoard(raw));
+    } catch {
+      return normalizeBoard(createInitialBoard());
+    }
+  }
+  return normalizeBoard(createInitialBoard());
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -428,8 +450,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           : null
       : null;
 
-    const board = payload.game.boardState.matrix;
-    const currentTurn = payload.game.currentTurn;
+    const board = extractBoardMatrix(payload.game.boardState);
+    const currentTurn = payload.game.currentTurn || PlayerColor.WHITE;
     const legalMoves = getLegalMoves(board as any, currentTurn === PlayerColor.WHITE ? Player.WHITE : Player.BLACK);
 
     if (payload.game.status === GameStatus.FINISHED && myColor) {

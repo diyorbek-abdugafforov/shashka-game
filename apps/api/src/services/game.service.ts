@@ -760,6 +760,97 @@ export class GameService {
       ratingUpdates,
     };
   }
+
+  /**
+   * Records a completed game (e.g. vs bot or offline) directly into database with moves and rewards.
+   */
+  public static async recordCompletedGame(
+    userId: string,
+    params: {
+      mode: GameMode;
+      difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+      result: GameResult;
+      reason: ResultReason;
+      moves?: Array<{
+        moveNumber?: number;
+        player: PlayerColor;
+        from: any;
+        to: any;
+        captures?: any[];
+        isPromotion?: boolean;
+        notation?: string;
+      }>;
+    },
+  ) {
+    const difficulty = params.difficulty || 'MEDIUM';
+    const botUser = await this.getOrCreateBotUser(difficulty);
+    const initialBoard = createInitialBoard();
+
+    const winnerId =
+      params.result === GameResult.WHITE_WON
+        ? userId
+        : params.result === GameResult.BLACK_WON
+          ? botUser.id
+          : null;
+
+    const game = await prisma.game.create({
+      data: {
+        mode: params.mode || GameMode.BOT,
+        status: GameStatus.FINISHED,
+        whitePlayerId: userId,
+        blackPlayerId: botUser.id,
+        currentTurn: PlayerColor.WHITE,
+        boardState: this.serializeBoard(initialBoard) as any,
+        isRated: false,
+        result: params.result,
+        resultReason: params.reason,
+        winnerId,
+        moveCount: params.moves ? params.moves.length : 0,
+        finishedAt: new Date(),
+        config: {
+          difficulty,
+          isGiveaway: params.mode === GameMode.GIVEAWAY,
+        },
+      },
+      include: {
+        whitePlayer: true,
+        blackPlayer: true,
+        winner: true,
+      },
+    });
+
+    if (params.moves && params.moves.length > 0) {
+      await prisma.move.createMany({
+        data: params.moves.map((m, idx) => ({
+          gameId: game.id,
+          moveNumber: m.moveNumber || idx + 1,
+          player: m.player,
+          from: m.from as any,
+          to: m.to as any,
+          captures: (m.captures || []) as any,
+          isPromotion: m.isPromotion === true,
+          notation: m.notation || `${positionToNotation(m.from)}-${positionToNotation(m.to)}`,
+        })),
+      });
+    }
+
+    if (winnerId === userId) {
+      try {
+        await WalletService.credit(
+          userId,
+          25,
+          WalletTransactionType.GAME_REWARD,
+          `G'alaba uchun mukofot (Bot o'yini)`,
+          game.id,
+          'GAME',
+        );
+      } catch (err) {
+        console.error('Failed to credit bot reward tokens:', err);
+      }
+    }
+
+    return game;
+  }
 }
 
 export default GameService;

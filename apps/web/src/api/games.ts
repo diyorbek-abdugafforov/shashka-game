@@ -55,4 +55,18 @@ export const gamesApi = {
       method: 'POST',
     });
   },
+
+  recordCompletedGame: async (data: {
+    userId?: string;
+    mode: string;
+    difficulty?: string;
+    result: string;
+    reason: string;
+    moves?: any[];
+  }): Promise<{ success: boolean; data: any }> => {
+    return apiClient<{ success: boolean; data: any }>('/games/record-completed', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
 };
