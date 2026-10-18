@@ -96,7 +96,7 @@ export const HomePage: React.FC = () => {
     staleTime: 60000,
   });
 
-  const currentRating = stats?.currentRating ?? (user ? (user as any).rating || 1200 : 1200);
+  const currentRating = stats?.currentRating ?? (user ? (user as any).rating ?? 0 : 0);
   const userDiamonds = wallet?.balance ?? 100;
 
   // Real-time active users who currently have the web app open right now!
@@ -117,11 +117,11 @@ export const HomePage: React.FC = () => {
       .map((entry) => ({
         id: entry.id,
         name: entry.displayName || 'O\'yinchi',
-        elo: entry.rating || 1200,
+        elo: entry.rating ?? 0,
         diamonds: 100,
-        stars: Math.max(1, Math.floor((entry.rating || 1200) / 300)),
+        stars: Math.max(1, Math.floor((entry.rating ?? 0) / 100)),
         avatarUrl: entry.avatarUrl,
-        isPremium: (entry.rating || 1200) >= 1500,
+        isPremium: (entry.rating ?? 0) >= 500,
       }));
   }, [onlineUsers, apiOnlineUsers, user?.id]);
 
@@ -329,7 +329,7 @@ export const HomePage: React.FC = () => {
                         name: friend.displayName,
                         username: friend.username,
                         avatarUrl: friend.avatarUrl,
-                        elo: friend.rating || 1200,
+                        elo: friend.rating ?? 0,
                         isOnline: friend.isOnline,
                       });
                     }}
@@ -373,7 +373,7 @@ export const HomePage: React.FC = () => {
                         </span>
                       </h4>
                       <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
-                        <span className="font-semibold text-zinc-300">ELO {friend.rating || 1200}</span>
+                        <span className="font-semibold text-zinc-300">ELO {friend.rating ?? 0}</span>
                       </div>
                     </div>
                   </div>
@@ -383,7 +383,7 @@ export const HomePage: React.FC = () => {
                       handleChallenge({
                         id: friend.id,
                         name: friend.displayName,
-                        elo: friend.rating || 1200,
+                        elo: friend.rating ?? 0,
                         diamonds: 100,
                       })
                     }

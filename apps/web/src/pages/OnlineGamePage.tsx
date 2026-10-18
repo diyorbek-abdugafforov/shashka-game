@@ -79,14 +79,14 @@ export const OnlineGamePage: React.FC = () => {
             id: initialGameData.whitePlayer?.id || '',
             displayName: initialGameData.whitePlayer?.displayName || 'Oq o\'yinchi',
             avatarUrl: initialGameData.whitePlayer?.avatarUrl || null,
-            rating: (initialGameData.whitePlayer as any)?.rating || 1200,
+            rating: (initialGameData.whitePlayer as any)?.rating ?? 0,
             isOnline: true,
           },
           blackPlayer: {
             id: initialGameData.blackPlayer?.id || '',
             displayName: initialGameData.blackPlayer?.displayName || 'Qora o\'yinchi',
             avatarUrl: initialGameData.blackPlayer?.avatarUrl || null,
-            rating: (initialGameData.blackPlayer as any)?.rating || 1200,
+            rating: (initialGameData.blackPlayer as any)?.rating ?? 0,
             isOnline: true,
           },
         },
@@ -117,14 +117,14 @@ export const OnlineGamePage: React.FC = () => {
             id: user?.id || 'player1',
             displayName: user?.displayName || 'Oq o\'yinchi',
             avatarUrl: user?.avatarUrl || null,
-            rating: 1200,
+            rating: 0,
             isOnline: true,
           },
           blackPlayer: {
             id: 'player2',
             displayName: 'Raqib (Do\'st)',
             avatarUrl: null,
-            rating: 1200,
+            rating: 0,
             isOnline: true,
           },
         },
@@ -301,7 +301,7 @@ export const OnlineGamePage: React.FC = () => {
         <PlayerInfo
           displayName={topPlayer?.displayName || 'Raqib'}
           avatarUrl={topPlayer?.avatarUrl}
-          rating={topPlayer?.rating}
+          rating={topPlayer?.rating ?? 0}
           color={topColor}
           timeLeftMs={topTime}
           isCurrentTurn={currentTurn === topColor}
@@ -332,7 +332,7 @@ export const OnlineGamePage: React.FC = () => {
         <PlayerInfo
           displayName={bottomPlayer?.displayName || user?.displayName || 'Siz'}
           avatarUrl={bottomPlayer?.avatarUrl || user?.avatarUrl}
-          rating={bottomPlayer?.rating || 1200}
+          rating={bottomPlayer?.rating ?? 0}
           color={bottomColor}
           timeLeftMs={bottomTime}
           isCurrentTurn={currentTurn === bottomColor}

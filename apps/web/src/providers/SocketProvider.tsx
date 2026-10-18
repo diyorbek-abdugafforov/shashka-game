@@ -115,6 +115,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [outgoingChallenge, setOutgoingChallenge] = useState<OutgoingChallenge | null>(null);
   const [declinedNotification, setDeclinedNotification] = useState<{ fromName: string } | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(30);
+  const [isAcceptingChallenge, setIsAcceptingChallenge] = useState(false);
 
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
@@ -138,7 +139,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               displayName: user.displayName,
               username: user.username,
               avatarUrl: user.avatarUrl,
-              rating: (user as any).rating || 1200,
+              rating: (user as any).rating ?? 0,
             }
           : undefined,
       },
@@ -198,66 +199,80 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socketInstance.on('challenge:matched', (payload: { gameId: string; color: any; opponent: any }) => {
       setIncomingChallenge(null);
       setOutgoingChallenge(null);
+      setIsAcceptingChallenge(false);
       triggerHaptic('success');
 
-      // Preload game state into store so OnlineGamePage opens IMMEDIATELY with board & players ready!
-      const initialBoard = createInitialBoard();
-      const isWhite = payload.color === PlayerColor.WHITE;
-      const currentUser = useAuthStore.getState().user;
+      try {
+        // Preload game state into store so OnlineGamePage opens IMMEDIATELY with board & players ready!
+        const initialBoard = createInitialBoard();
+        const isWhite = payload.color === PlayerColor.WHITE;
+        const currentUser = useAuthStore.getState().user;
 
-      setOnlineGameState(
-        {
-          game: {
-            id: payload.gameId,
-            mode: GameMode.CLASSIC,
-            status: GameStatus.IN_PROGRESS,
-            boardState: { matrix: initialBoard, fen: '' } as any,
-            currentTurn: PlayerColor.WHITE,
-            whitePlayerId: isWhite ? currentUser?.id || 'player-white' : payload.opponent?.id,
-            blackPlayerId: isWhite ? payload.opponent?.id : currentUser?.id || 'player-black',
-            timeControl: { initialSeconds: 180, incrementSeconds: 2 },
-            whiteTimeLeftMs: 180000,
-            blackTimeLeftMs: 180000,
-            startedAt: new Date().toISOString(),
-            moveCount: 0,
-          } as any,
-          moves: [],
-          whitePlayer: isWhite
-            ? {
-                id: currentUser?.id || '',
-                displayName: currentUser?.displayName || 'Siz',
-                avatarUrl: currentUser?.avatarUrl || null,
-                rating: (currentUser as any)?.rating || 1200,
-                isOnline: true,
-              }
-            : {
-                id: payload.opponent?.id || '',
-                displayName: payload.opponent?.displayName || 'Raqib',
-                avatarUrl: payload.opponent?.avatarUrl || null,
-                rating: payload.opponent?.rating || 1200,
-                isOnline: true,
-              },
-          blackPlayer: isWhite
-            ? {
-                id: payload.opponent?.id || '',
-                displayName: payload.opponent?.displayName || 'Raqib',
-                avatarUrl: payload.opponent?.avatarUrl || null,
-                rating: payload.opponent?.rating || 1200,
-                isOnline: true,
-              }
-            : {
-                id: currentUser?.id || '',
-                displayName: currentUser?.displayName || 'Siz',
-                avatarUrl: currentUser?.avatarUrl || null,
-                rating: (currentUser as any)?.rating || 1200,
-                isOnline: true,
-              },
-        },
-        currentUser?.id,
-      );
+        setOnlineGameState(
+          {
+            game: {
+              id: payload.gameId,
+              mode: GameMode.CLASSIC,
+              status: GameStatus.IN_PROGRESS,
+              boardState: { matrix: initialBoard, fen: '' } as any,
+              currentTurn: PlayerColor.WHITE,
+              whitePlayerId: isWhite ? currentUser?.id || 'player-white' : payload.opponent?.id,
+              blackPlayerId: isWhite ? payload.opponent?.id : currentUser?.id || 'player-black',
+              timeControl: { initialSeconds: 180, incrementSeconds: 2 },
+              whiteTimeLeftMs: 180000,
+              blackTimeLeftMs: 180000,
+              startedAt: new Date().toISOString(),
+              moveCount: 0,
+            } as any,
+            moves: [],
+            whitePlayer: isWhite
+              ? {
+                  id: currentUser?.id || '',
+                  displayName: currentUser?.displayName || 'Siz',
+                  avatarUrl: currentUser?.avatarUrl || null,
+                  rating: (currentUser as any)?.rating ?? 0,
+                  isOnline: true,
+                }
+              : {
+                  id: payload.opponent?.id || '',
+                  displayName: payload.opponent?.displayName || 'Raqib',
+                  avatarUrl: payload.opponent?.avatarUrl || null,
+                  rating: payload.opponent?.rating ?? 0,
+                  isOnline: true,
+                },
+            blackPlayer: isWhite
+              ? {
+                  id: payload.opponent?.id || '',
+                  displayName: payload.opponent?.displayName || 'Raqib',
+                  avatarUrl: payload.opponent?.avatarUrl || null,
+                  rating: payload.opponent?.rating ?? 0,
+                  isOnline: true,
+                }
+              : {
+                  id: currentUser?.id || '',
+                  displayName: currentUser?.displayName || 'Siz',
+                  avatarUrl: currentUser?.avatarUrl || null,
+                  rating: (currentUser as any)?.rating ?? 0,
+                  isOnline: true,
+                },
+          },
+          currentUser?.id,
+        );
+      } catch (err) {
+        console.warn('Error setting initial game state in challenge:matched:', err);
+      }
 
-      // Auto navigate both users to match!
-      router.navigate(`/game/online/${payload.gameId}`);
+      // Auto navigate both users to match with instant router and hard fallback!
+      try {
+        router.navigate(`/game/online/${payload.gameId}`);
+      } catch (err) {
+        console.error('Router navigation error:', err);
+      }
+      setTimeout(() => {
+        if (!window.location.pathname.includes(payload.gameId)) {
+          window.location.href = `/game/online/${payload.gameId}`;
+        }
+      }, 50);
     });
 
     socketInstance.on('challenge:declined', (payload: { challengeId: string; byUser?: { id: string; displayName: string } }) => {
@@ -371,10 +386,19 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const acceptChallenge = useCallback((challengeId: string, fromUserId: string, mode = GameMode.CLASSIC) => {
-    if (socketRef.current) {
+    const s = socketRef.current;
+    if (s) {
       triggerHaptic('heavy');
-      socketRef.current.emit('challenge:accept', { challengeId, fromUserId, mode });
-      setIncomingChallenge(null);
+      setIsAcceptingChallenge(true);
+      if (!s.connected) {
+        s.connect();
+      }
+      s.emit('challenge:accept', { challengeId, fromUserId, mode });
+
+      // Safety timeout: dismiss loading if server takes more than 4s
+      setTimeout(() => {
+        setIsAcceptingChallenge(false);
+      }, 4000);
     }
   }, []);
 
@@ -511,7 +535,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               </p>
               <div className="flex items-center justify-center gap-3 mt-2 text-xs">
                 <span className="px-2 py-0.5 rounded-lg bg-zinc-800 text-zinc-300 font-semibold">
-                  Reyting: ELO {incomingChallenge.fromUser.rating || 1200}
+                  Reyting: ELO {incomingChallenge.fromUser.rating ?? 0}
                 </span>
                 <span className="flex items-center gap-1 text-amber-400 font-semibold">
                   <Clock className="w-3.5 h-3.5" /> {remainingSeconds}s
@@ -530,19 +554,32 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-2.5 w-full pt-1">
               <button
+                disabled={isAcceptingChallenge}
                 onClick={() => declineChallenge(incomingChallenge.challengeId, incomingChallenge.fromUser.id)}
-                className="py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 border border-zinc-700"
+                className="py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 border border-zinc-700 disabled:opacity-50"
               >
                 <X className="w-4 h-4 text-rose-400" />
                 <span>Rad etish</span>
               </button>
 
               <button
+                disabled={isAcceptingChallenge}
                 onClick={() => acceptChallenge(incomingChallenge.challengeId, incomingChallenge.fromUser.id, incomingChallenge.mode)}
-                className="py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 active:scale-95 text-white font-extrabold text-xs transition-all shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-1.5"
+                className={`py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 active:scale-95 text-white font-extrabold text-xs transition-all shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-1.5 ${
+                  isAcceptingChallenge ? 'opacity-80 cursor-wait' : ''
+                }`}
               >
-                <Check className="w-4 h-4" />
-                <span>Qabul qilish</span>
+                {isAcceptingChallenge ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>O'yin ochilmoqda...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Qabul qilish</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

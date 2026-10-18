@@ -199,6 +199,27 @@ export class GameService {
   }
 
   /**
+   * Helper to ensure user exists in DB before creating a game referencing them
+   */
+  private static async ensureUserExists(userId: string, defaultName = "O'yinchi") {
+    try {
+      const existing = await prisma.user.findUnique({ where: { id: userId } });
+      if (!existing) {
+        await prisma.user.create({
+          data: {
+            id: userId,
+            displayName: defaultName,
+            username: `player_${userId.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 15)}`,
+            rating: 0,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn(`Could not verify/create user ${userId} for game:`, err);
+    }
+  }
+
+  /**
    * Creates a direct 1v1 challenge game between two users.
    */
   public static async createDirectChallengeGame(
@@ -208,6 +229,12 @@ export class GameService {
     timeControl = { initialSeconds: 180, incrementSeconds: 2 },
   ) {
     const initialBoard = createInitialBoard();
+
+    // Ensure foreign key constraints are always satisfied
+    await Promise.all([
+      this.ensureUserExists(whitePlayerId, "Oq o'yinchi"),
+      this.ensureUserExists(blackPlayerId, "Qora o'yinchi"),
+    ]);
 
     const game = await prisma.game.create({
       data: {
@@ -853,7 +880,7 @@ export class GameService {
     const userWon = params.result === GameResult.WHITE_WON;
     const isDraw = params.result === GameResult.DRAW;
     const ratingChange = isDraw ? 0 : userWon ? 15 : -10;
-    let newRating = 1200;
+    let newRating = 0;
 
     try {
       const userRecord = await prisma.user.findUnique({
@@ -861,7 +888,7 @@ export class GameService {
         select: { rating: true },
       });
       if (userRecord) {
-        newRating = Math.max(100, Math.round(userRecord.rating + ratingChange));
+        newRating = Math.max(0, Math.round(userRecord.rating + ratingChange));
         await prisma.user.update({
           where: { id: userId },
           data: { rating: newRating },

@@ -165,7 +165,7 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
       displayName: user.displayName,
       username: user.username || null,
       avatarUrl: user.avatarUrl || null,
-      rating: (user as any).rating || 1200,
+      rating: (user as any).rating ?? 0,
       socketId: socket.id,
       connectedAt: Date.now(),
     });
@@ -193,7 +193,7 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
           displayName: user.displayName,
           username: user.username,
           avatarUrl: user.avatarUrl,
-          rating: (user as any).rating || 1200,
+          rating: (user as any).rating ?? 0,
         },
         mode: payload.mode || GameMode.CLASSIC,
       };
@@ -229,7 +229,7 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
             id: user.id,
             displayName: user.displayName,
             avatarUrl: user.avatarUrl,
-            rating: (user as any).rating || 1200,
+            rating: (user as any).rating ?? 0,
           },
         };
 
@@ -240,9 +240,19 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
             id: fromUserId,
             displayName: fromUserRecord?.displayName || 'Raqib',
             avatarUrl: fromUserRecord?.avatarUrl || null,
-            rating: fromUserRecord?.rating || 1200,
+            rating: fromUserRecord?.rating ?? 0,
           },
         };
+
+        // Auto-join accepting user socket to the game room
+        socket.join(`game:${game.id}`);
+        socket.data.currentGameId = game.id;
+
+        // Auto-join offering user socket to the game room if present
+        if (fromSocketUser?.socketId) {
+          const fromSocket = io.sockets.sockets.get(fromSocketUser.socketId);
+          fromSocket?.join(`game:${game.id}`);
+        }
 
         // Notify Player 1 (White) both via user room and direct socket
         io.to(`user:${fromUserId}`).emit('challenge:matched', matchedPayload1);
@@ -257,7 +267,7 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
           io.to(toSocketUser.socketId).emit('challenge:matched', matchedPayload2);
         }
       } catch (err: any) {
-        fastify.log.error({ err }, 'Failed to accept direct challenge');
+        fastify.log.error({ err, message: err?.message }, 'Failed to accept direct challenge');
         socket.emit('error', { message: 'O\'yinni boshlashda xatolik yuz berdi' });
       }
     });

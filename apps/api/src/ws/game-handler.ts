@@ -62,14 +62,14 @@ export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
           id: game.whitePlayer?.id ?? '',
           displayName: game.whitePlayer?.displayName ?? 'Anonymous White',
           avatarUrl: game.whitePlayer?.avatarUrl ?? null,
-          rating: game.whitePlayer?.rating ?? 1500,
+          rating: game.whitePlayer?.rating ?? 0,
           isOnline: true,
         },
         blackPlayer: {
           id: game.blackPlayer?.id ?? '',
           displayName: game.blackPlayer?.displayName ?? (game.blackPlayerId ? 'Qora o\'yinchi' : 'Kutilmoqda...'),
           avatarUrl: game.blackPlayer?.avatarUrl ?? null,
-          rating: game.blackPlayer?.rating ?? 1500,
+          rating: game.blackPlayer?.rating ?? 0,
           isOnline: Boolean(game.blackPlayerId),
         },
       };

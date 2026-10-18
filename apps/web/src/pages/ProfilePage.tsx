@@ -229,7 +229,7 @@ export const ProfilePage: React.FC = () => {
           <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-center flex flex-col justify-center">
             <span className="text-[10px] text-zinc-400 block">ELO Reyting</span>
             <span className="text-base font-black text-indigo-400 mt-0.5 block">
-              {stats?.currentRating ?? (user ? (user as any).rating || 1200 : 1200)}
+              {stats?.currentRating ?? (user ? (user as any).rating ?? 0 : 0)}
             </span>
           </div>
 

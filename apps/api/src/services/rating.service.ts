@@ -3,7 +3,7 @@ import { GameResult } from '@shashka/shared-types';
 import Glicko2, { type GlickoPlayer } from '../utils/glicko2.js';
 import { BadRequestError, NotFoundError } from '../utils/errors.js';
 
-export const INITIAL_RATING = 1500;
+export const INITIAL_RATING = 0;
 export const INITIAL_RD = 350;
 export const INITIAL_VOLATILITY = 0.06;
 
@@ -18,7 +18,7 @@ export interface RatingUpdateResult {
 
 export class RatingService {
   /**
-   * Retrieves the current Glicko parameters for a user.
+   * Retrieves the current Glicko/Elo parameters for a user.
    */
   public static async getPlayerGlickoState(userId: string): Promise<GlickoPlayer> {
     const [user, latestHistory] = await Promise.all([
@@ -37,9 +37,53 @@ export class RatingService {
     }
 
     return {
-      rating: user.rating || INITIAL_RATING,
+      rating: user.rating ?? INITIAL_RATING,
       rd: latestHistory?.ratingDeviation ?? INITIAL_RD,
       vol: latestHistory?.volatility ?? INITIAL_VOLATILITY,
+    };
+  }
+
+  /**
+   * Calculates new ratings between two players using Elo formula with 0 baseline.
+   * Result: WHITE_WON, BLACK_WON, or DRAW.
+   */
+  public static calculateEloRatings(
+    whiteRating: number,
+    blackRating: number,
+    result: GameResult,
+  ): { white: { newRating: number; change: number }; black: { newRating: number; change: number } } {
+    const expectedWhite = 1 / (1 + Math.pow(10, (blackRating - whiteRating) / 400));
+    const expectedBlack = 1 - expectedWhite;
+
+    let actualWhite = 0.5;
+    let actualBlack = 0.5;
+    if (result === GameResult.WHITE_WON) {
+      actualWhite = 1;
+      actualBlack = 0;
+    } else if (result === GameResult.BLACK_WON) {
+      actualWhite = 0;
+      actualBlack = 1;
+    }
+
+    const K = 32;
+
+    let whiteChange = Math.round(K * (actualWhite - expectedWhite));
+    let blackChange = Math.round(K * (actualBlack - expectedBlack));
+
+    // Guarantee minimum win gain (+15) and loss deduction (-10)
+    if (actualWhite === 1 && whiteChange < 15) whiteChange = 15;
+    if (actualBlack === 1 && blackChange < 15) blackChange = 15;
+
+    if (actualWhite === 0 && whiteChange > -10) whiteChange = -10;
+    if (actualBlack === 0 && blackChange > -10) blackChange = -10;
+
+    // When starting at 0 or low rating, ratings cannot go below 0
+    const newWhiteRating = Math.max(0, whiteRating + whiteChange);
+    const newBlackRating = Math.max(0, blackRating + blackChange);
+
+    return {
+      white: { newRating: newWhiteRating, change: newWhiteRating - whiteRating },
+      black: { newRating: newBlackRating, change: newBlackRating - blackRating },
     };
   }
 
@@ -106,7 +150,7 @@ export class RatingService {
       const isDraw = game.result === GameResult.DRAW;
 
       const change = isDraw ? 0 : humanWon ? 15 : -10;
-      const newRating = Math.max(100, Math.round(humanUser.rating + change));
+      const newRating = Math.max(0, Math.round(humanUser.rating + change));
 
       await prisma.$transaction(async (tx) => {
         await tx.user.update({
@@ -138,29 +182,30 @@ export class RatingService {
       ];
     }
 
-    const [whiteState, blackState] = await Promise.all([
-      this.getPlayerGlickoState(game.whitePlayerId),
-      this.getPlayerGlickoState(game.blackPlayerId),
-    ]);
+    const whiteUser = game.whitePlayer || (await prisma.user.findUnique({ where: { id: game.whitePlayerId } }));
+    const blackUser = game.blackPlayer || (await prisma.user.findUnique({ where: { id: game.blackPlayerId } }));
 
-    const matchCalc = this.calculateNewRatings(whiteState, blackState, game.result as unknown as GameResult);
+    const whiteRating = whiteUser?.rating ?? 0;
+    const blackRating = blackUser?.rating ?? 0;
+
+    const eloCalc = this.calculateEloRatings(whiteRating, blackRating, game.result as unknown as GameResult);
 
     const whiteResult: RatingUpdateResult = {
       userId: game.whitePlayerId,
-      oldRating: whiteState.rating,
-      newRating: matchCalc.player1.rating,
-      change: matchCalc.player1.change,
-      rd: matchCalc.player1.rd,
-      volatility: matchCalc.player1.vol,
+      oldRating: whiteRating,
+      newRating: eloCalc.white.newRating,
+      change: eloCalc.white.change,
+      rd: 300,
+      volatility: 0.06,
     };
 
     const blackResult: RatingUpdateResult = {
       userId: game.blackPlayerId,
-      oldRating: blackState.rating,
-      newRating: matchCalc.player2.rating,
-      change: matchCalc.player2.change,
-      rd: matchCalc.player2.rd,
-      volatility: matchCalc.player2.vol,
+      oldRating: blackRating,
+      newRating: eloCalc.black.newRating,
+      change: eloCalc.black.change,
+      rd: 300,
+      volatility: 0.06,
     };
 
     await prisma.$transaction(async (tx) => {
