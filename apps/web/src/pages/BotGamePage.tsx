@@ -11,6 +11,7 @@ import { GameResultModal } from '../components/game/GameResult';
 import { Button } from '../components/ui/Button';
 import { useGameStore, BotDifficulty } from '../stores/game';
 import { useAuth } from '../hooks/useAuth';
+import { useAuthStore } from '../stores/auth';
 import { gamesApi } from '../api/games';
 import { triggerHaptic } from '../utils/telegram';
 import { Bot, User, Sparkles } from 'lucide-react';
@@ -84,6 +85,10 @@ export const BotGamePage: React.FC = () => {
           const id = res?.data?.id || res?.id;
           if (id) {
             setRecordedGameId(id);
+          }
+          const newRating = res?.data?.newRating || res?.newRating;
+          if (newRating) {
+            useAuthStore.getState().updateRating(newRating);
           }
         })
         .catch((err) => {

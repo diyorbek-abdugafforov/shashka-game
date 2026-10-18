@@ -37,4 +37,18 @@ export const usersApi = {
   getOnlineUsers: async (): Promise<any[]> => {
     return apiClient<any[]>('/users/online');
   },
+
+  rollDice: async (bet: number): Promise<{
+    diceNumber: number;
+    multiplier: number;
+    bet: number;
+    reward: number;
+    netProfit: number;
+    newBalance: number;
+  }> => {
+    return apiClient('/users/roll-dice', {
+      method: 'POST',
+      body: JSON.stringify({ bet }),
+    });
+  },
 };

@@ -16,6 +16,7 @@ interface AuthState {
   setWallet: (wallet: WalletModel | null) => void;
   setToken: (token: string | null) => void;
   updateBalance: (delta: number) => void;
+  updateRating: (newRating: number) => void;
   login: (initData?: string) => Promise<boolean>;
   checkSession: () => Promise<void>;
   logout: () => Promise<void>;
@@ -34,6 +35,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setToken: (token) => {
     setApiAuthToken(token);
     set({ token, isAuthenticated: Boolean(token) });
+  },
+
+  updateRating: (newRating: number) => {
+    const current = get().user;
+    if (current) {
+      set({ user: { ...current, rating: newRating } as any });
+    }
   },
 
   updateBalance: (delta: number) => {

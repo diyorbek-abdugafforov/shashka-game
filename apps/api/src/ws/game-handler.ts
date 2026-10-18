@@ -74,12 +74,9 @@ export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
         },
       };
 
-      // If both players are in the game, broadcast to the room so both screens sync
-      if (game.whitePlayerId && game.blackPlayerId) {
-        io.to(`game:${gameId}`).emit(SocketEvents.GAME_STATE, statePayload);
-      } else {
-        socket.emit(SocketEvents.GAME_STATE, statePayload);
-      }
+      // ALWAYS emit directly to the socket that just joined, AND broadcast to the room!
+      socket.emit(SocketEvents.GAME_STATE, statePayload);
+      socket.to(`game:${gameId}`).emit(SocketEvents.GAME_STATE, statePayload);
     } catch (err: any) {
       socket.emit(SocketEvents.ERROR, {
         code: 'GAME_JOIN_FAILED',

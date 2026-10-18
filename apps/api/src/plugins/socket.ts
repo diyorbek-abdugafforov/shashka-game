@@ -186,7 +186,7 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
       const challengeId = `chal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       fastify.log.info({ from: user.id, to: targetUserId }, 'Direct game challenge sent');
 
-      io.to(`user:${targetUserId}`).emit('challenge:received', {
+      const challengePayload = {
         challengeId,
         fromUser: {
           id: user.id,
@@ -196,7 +196,13 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
           rating: (user as any).rating || 1200,
         },
         mode: payload.mode || GameMode.CLASSIC,
-      });
+      };
+
+      io.to(`user:${targetUserId}`).emit('challenge:received', challengePayload);
+      const targetOnlineUser = activeOnlineUsers.get(targetUserId);
+      if (targetOnlineUser?.socketId) {
+        io.to(targetOnlineUser.socketId).emit('challenge:received', challengePayload);
+      }
     });
 
     // 2. Accept challenge: User B accepts -> create game and notify both

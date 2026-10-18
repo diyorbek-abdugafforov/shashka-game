@@ -137,11 +137,13 @@ export const OnlineGamePage: React.FC = () => {
     if (gameId && isConnected) {
       joinGame(gameId);
     }
+  }, [gameId, isConnected, joinGame]);
 
+  useEffect(() => {
     return () => {
       clearOnlineGame();
     };
-  }, [gameId, isConnected, joinGame, clearOnlineGame]);
+  }, [clearOnlineGame]);
 
   // Auto-join invite game if user is not the creator and slot is open
   useEffect(() => {

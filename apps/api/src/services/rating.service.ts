@@ -95,9 +95,47 @@ export class RatingService {
       throw new BadRequestError(`Game ${gameId} has no recorded result`);
     }
 
-    // Do not update ratings if bot is playing
+    // If bot is playing, calculate human player rating change directly
     if (game.whitePlayer?.isBot || game.blackPlayer?.isBot) {
-      return [];
+      const humanIsWhite = !game.whitePlayer?.isBot;
+      const humanUser = humanIsWhite ? game.whitePlayer! : game.blackPlayer!;
+
+      const humanWon =
+        (humanIsWhite && game.result === GameResult.WHITE_WON) ||
+        (!humanIsWhite && game.result === GameResult.BLACK_WON);
+      const isDraw = game.result === GameResult.DRAW;
+
+      const change = isDraw ? 0 : humanWon ? 15 : -10;
+      const newRating = Math.max(100, Math.round(humanUser.rating + change));
+
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: humanUser.id },
+          data: { rating: newRating },
+        });
+
+        await tx.ratingHistory.create({
+          data: {
+            userId: humanUser.id,
+            gameId: game.id,
+            rating: newRating,
+            ratingDeviation: 300,
+            volatility: 0.06,
+            change,
+          },
+        });
+      });
+
+      return [
+        {
+          userId: humanUser.id,
+          oldRating: humanUser.rating,
+          newRating,
+          change,
+          rd: 300,
+          volatility: 0.06,
+        },
+      ];
     }
 
     const [whiteState, blackState] = await Promise.all([

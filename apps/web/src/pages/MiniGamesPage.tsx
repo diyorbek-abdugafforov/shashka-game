@@ -10,6 +10,7 @@ import { formatNumber } from '../utils/format';
 import { triggerHaptic } from '../utils/telegram';
 import { playCoinSound, playWinSound, playClickSound, playLoseSound } from '../utils/sound';
 import { useTranslation, Language } from '../i18n';
+import { usersApi } from '../api/users';
 import {
   Sparkles,
   Gift,
@@ -178,8 +179,13 @@ export const MiniGamesPage: React.FC = () => {
   const currentPuzzles = PUZZLES_DATA[language as Language] || PUZZLES_DATA.uz;
 
   const [activeTab, setActiveTab] = useState<'wheel' | 'puzzles'>('wheel');
+  const [selectedBet, setSelectedBet] = useState(50);
   const [isRolling, setIsRolling] = useState(false);
   const [lastReward, setLastReward] = useState<number | null>(null);
+  const [diceNumber, setDiceNumber] = useState<number | null>(null);
+  const [diceMultiplier, setDiceMultiplier] = useState<number | null>(null);
+  const [diceNetProfit, setDiceNetProfit] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [solvedPuzzles, setSolvedPuzzles] = useState<number[]>(() => {
     try {
@@ -193,23 +199,67 @@ export const MiniGamesPage: React.FC = () => {
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [feedback, setFeedback] = useState<{ [id: number]: { correct: boolean; msg: string } }>({});
 
-  const handleRollDice = () => {
+  const handleRollDice = async () => {
     if (isRolling) return;
+    const currentBalance = wallet?.balance ?? 0;
+
+    if (currentBalance < selectedBet) {
+      triggerHaptic('error');
+      playLoseSound();
+      setErrorMessage(
+        language === 'ru'
+          ? `Недостаточно монет! Для броска костей нужно минимум ${selectedBet} монет.`
+          : language === 'en'
+            ? `Not enough coins! You need at least ${selectedBet} coins to roll.`
+            : `Tangangiz yetarli emas! Zar tashlash uchun kamida ${selectedBet} tanga kerak.`,
+      );
+      return;
+    }
+
+    setErrorMessage(null);
     setIsRolling(true);
     triggerHaptic('heavy');
     playClickSound();
 
-    const rewards = [150, 250, 300, 500, 750, 1000];
-    const chosen = rewards[Math.floor(Math.random() * rewards.length)]!;
+    try {
+      const res: any = await usersApi.rollDice(selectedBet);
+      const data = res?.data || res;
 
-    setTimeout(() => {
+      setTimeout(() => {
+        setIsRolling(false);
+        if (data && data.diceNumber) {
+          setDiceNumber(data.diceNumber);
+          setDiceMultiplier(data.multiplier);
+          setLastReward(data.reward);
+          setDiceNetProfit(data.netProfit);
+
+          if (data.newBalance !== undefined) {
+            useAuthStore.setState((s) => ({
+              wallet: s.wallet ? { ...s.wallet, balance: data.newBalance } : s.wallet,
+            }));
+          } else {
+            updateBalance(data.netProfit);
+          }
+
+          if (data.netProfit > 0) {
+            triggerHaptic('success');
+            playCoinSound();
+            playWinSound();
+          } else if (data.netProfit < 0) {
+            triggerHaptic('error');
+            playLoseSound();
+          } else {
+            triggerHaptic('medium');
+            playCoinSound();
+          }
+        }
+      }, 1000);
+    } catch (err: any) {
       setIsRolling(false);
-      setLastReward(chosen);
-      updateBalance(chosen);
-      triggerHaptic('success');
-      playCoinSound();
-      playWinSound();
-    }, 1200);
+      triggerHaptic('error');
+      playLoseSound();
+      setErrorMessage(err?.message || 'Zar tashlashda xatolik yuz berdi');
+    }
   };
 
   const handleSolvePuzzle = (puzzle: Puzzle) => {
@@ -302,61 +352,124 @@ export const MiniGamesPage: React.FC = () => {
         {activeTab === 'wheel' && (
           <div className="flex flex-col gap-4">
             <Card className="p-6 text-center bg-gradient-to-b from-indigo-950/70 via-zinc-900 to-zinc-900 border-indigo-700/40 relative overflow-hidden">
-              <div className="w-20 h-20 rounded-3xl bg-indigo-600/20 border-2 border-indigo-500/40 flex items-center justify-center mx-auto mb-4 shadow-xl">
-                <Dices
-                  className={cn(
-                    'w-10 h-10 text-indigo-400 transition-transform duration-500',
-                    isRolling && 'animate-spin',
-                  )}
-                />
+              {/* Dice animation / result box */}
+              <div className="w-24 h-24 rounded-3xl bg-indigo-600/20 border-2 border-indigo-500/40 flex flex-col items-center justify-center mx-auto mb-3 shadow-xl relative">
+                {diceNumber ? (
+                  <div className="flex flex-col items-center animate-in zoom-in-75 duration-300">
+                    <span className="text-4xl font-black text-amber-300 font-mono">{diceNumber}</span>
+                    <span className="text-[10px] font-bold text-indigo-300 mt-0.5">{diceMultiplier}x</span>
+                  </div>
+                ) : (
+                  <Dices
+                    className={cn(
+                      'w-12 h-12 text-indigo-400 transition-transform duration-500',
+                      isRolling && 'animate-spin',
+                    )}
+                  />
+                )}
               </div>
 
-              <h3 className="text-lg font-black text-zinc-100">{t('mini_dice_title')}</h3>
+              <h3 className="text-lg font-black text-zinc-100">
+                {language === 'ru' ? 'Счастливые кости (Зарик)' : language === 'en' ? 'Lucky Dice' : 'Zar tashlash (Zarik)'}
+              </h3>
               <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
-                {t('mini_dice_desc')}
+                {language === 'ru'
+                  ? 'Выберите ставку, бросьте кости и умножьте свои монеты до 5 раз!'
+                  : language === 'en'
+                    ? 'Choose your bet, roll the dice and multiply your coins up to 5x!'
+                    : "Garov tangasini tanlang, zar tashlang va tangalaringizni 5 barobargacha ko'paytiring!"}
               </p>
 
-              {lastReward !== null && (
-                <div className="my-4 p-3 bg-emerald-950/80 border border-emerald-600/80 rounded-xl text-emerald-300 text-sm font-black animate-fade-in flex items-center justify-center gap-2">
-                  <Coins className="w-5 h-5 text-amber-400" />
-                  <span>+{formatNumber(lastReward)} {t('coins')}!</span>
+              {/* Bet Selector */}
+              <div className="mt-4 flex flex-col gap-2">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                  {language === 'ru' ? 'Выберите ставку (монеты):' : language === 'en' ? 'Select Bet (Coins):' : "Zar narxi (Tangada):"}
+                </span>
+                <div className="grid grid-cols-4 gap-1.5 p-1 bg-zinc-950/60 rounded-xl border border-zinc-800">
+                  {[25, 50, 100, 250].map((bet) => (
+                    <button
+                      key={bet}
+                      disabled={isRolling}
+                      onClick={() => {
+                        triggerHaptic('selection');
+                        setSelectedBet(bet);
+                        setErrorMessage(null);
+                      }}
+                      className={cn(
+                        'py-1.5 rounded-lg text-xs font-bold transition-all',
+                        selectedBet === bet
+                          ? 'bg-amber-500 text-zinc-950 shadow-md font-black'
+                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50',
+                      )}
+                    >
+                      {bet}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Error Message if Insufficient Balance */}
+              {errorMessage && (
+                <div className="mt-3 p-2.5 rounded-xl bg-rose-950/80 border border-rose-800/80 text-rose-300 text-xs font-medium animate-shake">
+                  {errorMessage}
                 </div>
               )}
 
+              {/* Outcome Banner */}
+              {lastReward !== null && diceNetProfit !== null && !isRolling && (
+                <div
+                  className={cn(
+                    'my-3 p-3 rounded-xl border text-sm font-black animate-fade-in flex items-center justify-center gap-2',
+                    diceNetProfit > 0
+                      ? 'bg-emerald-950/80 border-emerald-600/80 text-emerald-300'
+                      : diceNetProfit < 0
+                        ? 'bg-amber-950/80 border-amber-600/80 text-amber-300'
+                        : 'bg-zinc-800/80 border-zinc-700 text-zinc-300',
+                  )}
+                >
+                  <Coins className="w-5 h-5 text-amber-400" />
+                  <span>
+                    {diceNetProfit > 0
+                      ? `+${formatNumber(lastReward)} tanga (Foyda: +${formatNumber(diceNetProfit)})!`
+                      : `${lastReward} tanga qaytdi (${diceNetProfit} tanga)`}
+                  </span>
+                </div>
+              )}
+
+              {/* Roll Button */}
               <Button
                 size="lg"
                 variant="primary"
                 onClick={handleRollDice}
-                disabled={isRolling}
-                className="mt-4 w-full text-sm font-bold shadow-glow"
+                disabled={isRolling || (wallet?.balance ?? 0) < selectedBet}
+                className="mt-3 w-full text-sm font-bold shadow-glow"
                 leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
               >
-                {isRolling ? t('mini_dice_rolling') : t('mini_dice_roll_btn')}
+                {isRolling
+                  ? language === 'ru' ? 'Кости бросаются...' : 'Zar tashlanmoqda...'
+                  : (wallet?.balance ?? 0) < selectedBet
+                    ? language === 'ru' ? `Недостаточно монет (${selectedBet} нужно)` : `Tangangiz yetarli emas (${selectedBet} kerak)`
+                    : `${language === 'ru' ? 'Бросить зарик' : 'Zar tashlash'} (${selectedBet} tanga)`}
               </Button>
             </Card>
 
+            {/* Multiplier Paytable */}
             <Card className="p-4 bg-zinc-900/60 border-zinc-800">
-              <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">
-                {language === 'ru' ? 'Таблица наград' : language === 'en' ? 'Reward Table' : 'Mukofotlar jadvali'}
+              <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2.5">
+                {language === 'ru' ? 'Таблица выигрышей по числу на кубике' : "Zar raqami bo'yicha yutuqlar"}
               </h4>
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="p-2.5 rounded-xl bg-zinc-800/80 border border-zinc-700/60">
-                  <span className="text-zinc-400 block text-[10px]">
-                    {language === 'ru' ? '1-уровень' : language === 'en' ? 'Tier 1' : '1-daraja'}
-                  </span>
-                  <span className="font-bold text-amber-300">150 {t('coins')}</span>
+                <div className="p-2 rounded-xl bg-zinc-800/70 border border-zinc-700/60">
+                  <span className="text-zinc-400 block text-[10px]">1-2 tushsa</span>
+                  <span className="font-bold text-amber-300">0.5x - 0.8x</span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-zinc-800/80 border border-zinc-700/60">
-                  <span className="text-zinc-400 block text-[10px]">
-                    {language === 'ru' ? '2-уровень' : language === 'en' ? 'Tier 2' : '2-daraja'}
-                  </span>
-                  <span className="font-bold text-amber-300">300 {t('coins')}</span>
+                <div className="p-2 rounded-xl bg-zinc-800/70 border border-zinc-700/60">
+                  <span className="text-zinc-400 block text-[10px]">3-4 tushsa</span>
+                  <span className="font-bold text-emerald-400">1.2x - 1.8x</span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-zinc-800/80 border border-zinc-700/60">
-                  <span className="text-zinc-400 block text-[10px]">
-                    {language === 'ru' ? 'Джекпот' : language === 'en' ? 'Jackpot' : 'Jekpot'}
-                  </span>
-                  <span className="font-bold text-emerald-400">1000 {t('coins')}</span>
+                <div className="p-2 rounded-xl bg-zinc-800/70 border border-zinc-700/60">
+                  <span className="text-zinc-400 block text-[10px]">5-6 (Jekpot!)</span>
+                  <span className="font-bold text-amber-400 font-mono">2.5x - 5.0x</span>
                 </div>
               </div>
             </Card>

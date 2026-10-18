@@ -303,6 +303,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     socketInstance.on('game:finished', (payload: GameFinishedPayload) => {
       setOnlineGameFinished(payload.result, payload.reason);
+      if (payload.ratingUpdates && Array.isArray(payload.ratingUpdates)) {
+        const myUpdate = (payload.ratingUpdates as any[]).find((u) => u.userId === user?.id);
+        if (myUpdate && myUpdate.newRating) {
+          useAuthStore.getState().updateRating(myUpdate.newRating);
+        }
+      }
     });
 
     socketInstance.on('error', (err: SocketErrorPayload) => {

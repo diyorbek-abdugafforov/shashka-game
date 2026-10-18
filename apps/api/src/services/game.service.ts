@@ -849,7 +849,43 @@ export class GameService {
       }
     }
 
-    return game;
+    // Update user rating and history
+    const userWon = params.result === GameResult.WHITE_WON;
+    const isDraw = params.result === GameResult.DRAW;
+    const ratingChange = isDraw ? 0 : userWon ? 15 : -10;
+    let newRating = 1200;
+
+    try {
+      const userRecord = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { rating: true },
+      });
+      if (userRecord) {
+        newRating = Math.max(100, Math.round(userRecord.rating + ratingChange));
+        await prisma.user.update({
+          where: { id: userId },
+          data: { rating: newRating },
+        });
+        await prisma.ratingHistory.create({
+          data: {
+            userId,
+            gameId: game.id,
+            rating: newRating,
+            ratingDeviation: 300,
+            volatility: 0.06,
+            change: ratingChange,
+          },
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update rating in recordCompletedGame:', err);
+    }
+
+    return {
+      ...game,
+      ratingChange,
+      newRating,
+    };
   }
 }
 
