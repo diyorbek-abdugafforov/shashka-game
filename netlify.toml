@@ -1,0 +1,8 @@
+[build]
+  publish = "apps/web/dist"
+  command = "pnpm --filter @shashka/web... build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

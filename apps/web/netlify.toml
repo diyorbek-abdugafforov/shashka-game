@@ -1,6 +1,6 @@
 [build]
   publish = "dist"
-  command = "pnpm --filter @shashka/web build"
+  command = "pnpm --filter @shashka/web... build"
 
 [[redirects]]
   from = "/*"
