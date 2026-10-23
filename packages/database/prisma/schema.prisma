@@ -134,6 +134,9 @@ model User {
   bannedUntil DateTime?
   banReason   String?
   rating      Float     @default(0)
+  passwordHash String?
+  equippedBoard String?   @default("classic")
+  equippedPieces String?  @default("classic")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -428,3 +431,62 @@ model FeatureFlag {
 
   @@index([key])
 }
+
+// ----------------------------------------------------
+// TOURNAMENTS, NOTIFICATIONS, CHATS & REVIEWS
+// ----------------------------------------------------
+
+model Tournament {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  mode         GameMode  @default(CLASSIC)
+  status       String    @default("UPCOMING") // UPCOMING, ACTIVE, FINISHED
+  startTime    DateTime
+  prize        String
+  maxPlayers   Int       @default(16)
+  creatorId    String?
+  participants Json      @default("[]") // [{ id, displayName, avatarUrl, score: 0 }]
+  createdAt    DateTime  @default(now())
+
+  @@index([status, startTime])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?  // null = broadcast, string = specific user
+  title     String
+  message   String
+  type      String   @default("INFO") // ADMIN_BROADCAST, FRIEND_ADDED, GAME_INVITE, SYSTEM
+  data      Json     @default("{}")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead, createdAt])
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  gameId     String
+  senderId   String
+  senderName String
+  avatarUrl  String?
+  text       String?
+  sticker    String?
+  createdAt  DateTime @default(now())
+
+  @@index([gameId, createdAt])
+}
+
+model GameReview {
+  id        String   @id @default(uuid())
+  gameId    String
+  userId    String
+  rating    Int      @default(5) // 1 to 5 stars
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@unique([gameId, userId])
+  @@index([gameId])
+}
+

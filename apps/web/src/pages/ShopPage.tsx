@@ -11,7 +11,7 @@ import { ErrorState } from '../components/ui/ErrorState';
 import { shopApi } from '../api/shop';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../stores/auth';
-import { useSettingsStore, BoardThemeId } from '../stores/settings';
+import { useSettingsStore, BoardThemeId, PieceSkinId } from '../stores/settings';
 import { useTranslation } from '../i18n';
 import { formatNumber } from '../utils/format';
 import { triggerHaptic } from '../utils/telegram';
@@ -34,7 +34,7 @@ export const ShopPage: React.FC = () => {
   const navigate = useNavigate();
   const { wallet } = useAuth();
   const { updateBalance } = useAuthStore();
-  const { boardTheme, setBoardTheme } = useSettingsStore();
+  const { boardTheme, setBoardTheme, pieceSkin, setPieceSkin } = useSettingsStore();
   const { t } = useTranslation();
 
   const [selectedCategory, setSelectedCategory] = useState<ShopItemCategory>(
@@ -162,6 +162,8 @@ export const ShopPage: React.FC = () => {
 
     if (item.category === ShopItemCategory.BOARD_THEME) {
       setBoardTheme(item.id as BoardThemeId);
+    } else if (item.category === ShopItemCategory.PIECE_SKIN) {
+      setPieceSkin(item.id as PieceSkinId);
     }
 
     setSuccessMessage(`"${item.name}" ${t('shop_success_buy')}`);
@@ -173,6 +175,10 @@ export const ShopPage: React.FC = () => {
     playClickSound();
     if (item.category === ShopItemCategory.BOARD_THEME) {
       setBoardTheme(item.id as BoardThemeId);
+      setSuccessMessage(`"${item.name}" ${t('shop_success_equip')}`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } else if (item.category === ShopItemCategory.PIECE_SKIN) {
+      setPieceSkin(item.id as PieceSkinId);
       setSuccessMessage(`"${item.name}" ${t('shop_success_equip')}`);
       setTimeout(() => setSuccessMessage(null), 3000);
     }
@@ -283,7 +289,11 @@ export const ShopPage: React.FC = () => {
             displayItems.map((item) => {
               const isOwned = ownedItems.includes(item.id);
               const isEquipped =
-                item.category === ShopItemCategory.BOARD_THEME && boardTheme === item.id;
+                item.category === ShopItemCategory.BOARD_THEME
+                  ? boardTheme === item.id
+                  : item.category === ShopItemCategory.PIECE_SKIN
+                    ? pieceSkin === item.id
+                    : false;
 
               return (
                 <Card

@@ -17,6 +17,8 @@ export interface ActiveOnlineUser {
   username: string | null;
   avatarUrl: string | null;
   rating: number;
+  status?: 'online' | 'in_game' | 'offline';
+  currentGameId?: string | null;
   socketId: string;
   connectedAt: number;
 }
@@ -166,6 +168,8 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
       username: user.username || null,
       avatarUrl: user.avatarUrl || null,
       rating: (user as any).rating ?? 0,
+      status: 'online',
+      currentGameId: null,
       socketId: socket.id,
       connectedAt: Date.now(),
     });
@@ -254,6 +258,17 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
           fromSocket?.join(`game:${game.id}`);
         }
 
+        // Set in-game status for both players and broadcast to all users
+        if (fromSocketUser) {
+          fromSocketUser.status = 'in_game';
+          fromSocketUser.currentGameId = game.id;
+        }
+        if (toSocketUser) {
+          toSocketUser.status = 'in_game';
+          toSocketUser.currentGameId = game.id;
+        }
+        io.emit('users:online', Array.from(activeOnlineUsers.values()));
+
         // Notify Player 1 (White) both via user room and direct socket
         io.to(`user:${fromUserId}`).emit('challenge:matched', matchedPayload1);
         if (fromSocketUser?.socketId) {
@@ -269,6 +284,55 @@ export const socketPlugin: FastifyPluginAsync = async (fastify) => {
       } catch (err: any) {
         fastify.log.error({ err, message: err?.message }, 'Failed to accept direct challenge');
         socket.emit('error', { message: 'O\'yinni boshlashda xatolik yuz berdi' });
+      }
+    });
+
+    // Spectator join
+    socket.on('game:spectate', async (payload: { gameId: string }) => {
+      const { gameId } = payload;
+      if (!gameId) return;
+
+      socket.join(`game:${gameId}`);
+      socket.data.currentGameId = gameId;
+
+      try {
+        const game = await GameService.getGame(gameId);
+        const moves = await GameService.getGameMoves(gameId);
+
+        socket.emit('game:state', {
+          game: {
+            ...game,
+            boardState: GameService.serializeBoard(GameService.deserializeBoard(game.boardState)),
+            startedAt: game.startedAt.toISOString(),
+            finishedAt: game.finishedAt ? game.finishedAt.toISOString() : null,
+            whiteTimeLeftMs: 90000,
+            blackTimeLeftMs: 90000,
+          },
+          moves: moves.map((m) => ({
+            ...m,
+            from: m.from as any,
+            to: m.to as any,
+            captures: m.captures as any,
+            timestamp: m.timestamp.toISOString(),
+          })),
+          whitePlayer: {
+            id: game.whitePlayer?.id ?? '',
+            displayName: game.whitePlayer?.displayName ?? 'Oq o\'yinchi',
+            avatarUrl: game.whitePlayer?.avatarUrl ?? null,
+            rating: game.whitePlayer?.rating ?? 0,
+            isOnline: true,
+          },
+          blackPlayer: {
+            id: game.blackPlayer?.id ?? '',
+            displayName: game.blackPlayer?.displayName ?? 'Qora o\'yinchi',
+            avatarUrl: game.blackPlayer?.avatarUrl ?? null,
+            rating: game.blackPlayer?.rating ?? 0,
+            isOnline: Boolean(game.blackPlayerId),
+          },
+          isSpectator: true,
+        });
+      } catch (err: any) {
+        socket.emit('error', { message: 'O\'yinni kuzatib bo\'lmadi' });
       }
     });
 

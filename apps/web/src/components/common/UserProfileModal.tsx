@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Swords, UserPlus, Check, X, Trophy, Star, Gem, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Swords, UserPlus, Check, X, Trophy, Star, Gem, ShieldCheck, Eye } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { friendsApi } from '../../api/friends';
@@ -15,6 +16,8 @@ export interface UserProfileTarget {
   elo: number;
   diamonds?: number;
   isOnline?: boolean;
+  status?: 'in_game' | 'online' | 'offline';
+  currentGameId?: string | null;
 }
 
 export interface UserProfileModalProps {
@@ -22,6 +25,7 @@ export interface UserProfileModalProps {
   onClose: () => void;
   targetUser: UserProfileTarget | null;
   onChallenge?: (userId: string, userName: string) => void;
+  onSpectate?: (gameId: string) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -29,7 +33,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   targetUser,
   onChallenge,
+  onSpectate,
 }) => {
+  const navigate = useNavigate();
   const { language } = useTranslation();
   const queryClient = useQueryClient();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -64,6 +70,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   if (!targetUser) return null;
 
+  const isInGame = targetUser.status === 'in_game' || Boolean(targetUser.currentGameId);
+  const isOnline = targetUser.isOnline || isInGame;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="O'yinchi profili">
       <div className="flex flex-col items-center text-center gap-4 py-2">
@@ -82,11 +91,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
           <span
             className={`absolute bottom-0 right-0 w-4 h-4 rounded-full ring-2 ring-zinc-900 flex items-center justify-center ${
-              targetUser.isOnline ? 'bg-emerald-500' : 'bg-zinc-500'
+              isInGame ? 'bg-amber-400' : isOnline ? 'bg-emerald-500' : 'bg-zinc-500'
             }`}
-            title={targetUser.isOnline ? 'Onlayn' : 'Oflayn'}
+            title={isInGame ? "O'yinda" : isOnline ? 'Onlayn' : 'Oflayn'}
           >
-            {targetUser.isOnline && (
+            {(isInGame || isOnline) && (
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
             )}
           </span>
@@ -97,13 +106,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <h3 className="text-base font-extrabold text-white flex items-center justify-center gap-1.5">
             <span>{targetUser.name}</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold ${
-                targetUser.isOnline
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-zinc-800 text-zinc-400'
+              className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                isInGame
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : isOnline
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-zinc-800 text-zinc-400'
               }`}
             >
-              {targetUser.isOnline ? 'Onlayn' : 'Oflayn'}
+              {isInGame ? "O'yinda" : isOnline ? 'Onlayn' : 'Oflayn'}
             </span>
           </h3>
           {targetUser.username && (
@@ -150,8 +161,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-2 w-full pt-1">
+          {/* Spectate Button if currently in match */}
+          {isInGame && targetUser.currentGameId && (
+            <button
+              onClick={() => {
+                triggerHaptic('medium');
+                if (onSpectate) {
+                  onSpectate(targetUser.currentGameId!);
+                } else {
+                  navigate(`/game/online/${targetUser.currentGameId}?spectate=true`);
+                }
+                onClose();
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-95 text-zinc-950 font-black text-xs transition-all shadow-lg shadow-amber-950/40 flex items-center justify-center gap-2"
+            >
+              <Eye className="w-4 h-4 text-zinc-950" />
+              <span>O'yinini kuzatish</span>
+            </button>
+          )}
+
           {/* Challenge Button */}
-          {onChallenge && (
+          {onChallenge && !isInGame && (
             <button
               onClick={() => {
                 triggerHaptic('medium');

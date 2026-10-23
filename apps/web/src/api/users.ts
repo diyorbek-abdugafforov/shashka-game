@@ -51,4 +51,8 @@ export const usersApi = {
       body: JSON.stringify({ bet }),
     });
   },
+
+  getAllPlayers: async (): Promise<any[]> => {
+    return apiClient<any[]>('/users/all-players');
+  },
 };

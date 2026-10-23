@@ -5,9 +5,11 @@ import { PageContainer } from '../components/layout/PageContainer';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
+import { Modal } from '../components/ui/Modal';
 import { useAuth } from '../hooks/useAuth';
 import { usersApi } from '../api/users';
 import { gamesApi } from '../api/games';
+import { authApi } from '../api/auth';
 import { triggerHaptic } from '../utils/telegram';
 import { useTranslation } from '../i18n';
 import {
@@ -23,6 +25,7 @@ import {
   Zap,
   Flame,
   Coins,
+  Check,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -34,6 +37,13 @@ export const ProfilePage: React.FC = () => {
   const [selectedGame, setSelectedGame] = useState<'shashka' | 'shaxmat'>('shashka');
   const [likesCount, setLikesCount] = useState(0);
   const [hasLiked, setHasLiked] = useState(false);
+
+  // Password & browser login credentials state
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [usernameInput, setUsernameInput] = useState(user?.username || '');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [credMsg, setCredMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSavingCreds, setIsSavingCreds] = useState(false);
 
   const { data: stats } = useQuery({
     queryKey: ['my-stats', user?.id],
@@ -50,19 +60,41 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handlePromptPassword = () => {
-    triggerHaptic('medium');
-    const pwd = prompt(
-      language === 'ru'
-        ? 'Введите новый пароль для входа без Telegram:'
-        : "Telegram'siz kirish uchun yangi parol kiriting:",
-    );
-    if (pwd) {
-      alert(
-        language === 'ru'
-          ? 'Пароль успешно установлен! Теперь вы можете входить с логином и паролем.'
-          : "Parol muvaffaqiyatli o'rnatildi! Endi brauzerdan ham kirishingiz mumkin.",
-      );
+  const handleSaveCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usernameInput.trim() || !passwordInput.trim()) return;
+
+    if (passwordInput.length < 6) {
+      setCredMsg({ type: 'error', text: "Parol kamida 6 ta belgidan iborat bo'lishi kerak!" });
+      return;
+    }
+
+    setIsSavingCreds(true);
+    setCredMsg(null);
+
+    try {
+      await authApi.setCredentials({
+        username: usernameInput.trim(),
+        password: passwordInput.trim(),
+      });
+      triggerHaptic('success');
+      setCredMsg({
+        type: 'success',
+        text: "Parol va login muvaffaqiyatli saqlandi! Endi istalgan brauzerdan ushbu login va parol bilan profilingizga kira olasiz.",
+      });
+      setTimeout(() => {
+        setIsPasswordModalOpen(false);
+        setPasswordInput('');
+        setCredMsg(null);
+      }, 3000);
+    } catch (err: any) {
+      triggerHaptic('error');
+      setCredMsg({
+        type: 'error',
+        text: err?.message || 'Xatolik yuz berdi. Boshqa login tanlab ko\'ring.',
+      });
+    } finally {
+      setIsSavingCreds(false);
     }
   };
 
@@ -175,7 +207,10 @@ export const ProfilePage: React.FC = () => {
 
         {/* Security / Password Setup Card */}
         <div
-          onClick={handlePromptPassword}
+          onClick={() => {
+            triggerHaptic('medium');
+            setIsPasswordModalOpen(true);
+          }}
           className="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-amber-600/40 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between"
         >
           <div className="flex items-center gap-3">
@@ -275,6 +310,81 @@ export const ProfilePage: React.FC = () => {
           <ChevronRight className="w-5 h-5 text-indigo-400 shrink-0" />
         </button>
       </div>
+
+      {/* SET PASSWORD / CREDENTIALS MODAL */}
+      <Modal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        title="Brauzer orqali kirish paroli"
+      >
+        <form onSubmit={handleSaveCredentials} className="flex flex-col gap-3 py-1">
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Telegram bloklanganda yoki kompyuter brauzeridan kirganingizda ushbu login va parol orqali o'z profilingizga to'liq kira olasiz.
+          </p>
+
+          {credMsg && (
+            <div
+              className={cn(
+                'p-3 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in',
+                credMsg.type === 'success'
+                  ? 'bg-emerald-950/90 border border-emerald-600 text-emerald-200'
+                  : 'bg-rose-950/90 border border-rose-600 text-rose-200',
+              )}
+            >
+              {credMsg.type === 'success' && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+              <span>{credMsg.text}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-zinc-300 block mb-1">
+              Login (Foydalanuvchi nomi) *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="Masalan: shashkachi_uz"
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+              className="w-full bg-zinc-800 text-zinc-100 text-xs rounded-xl px-3 py-2.5 border border-zinc-700 outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-zinc-300 block mb-1">
+              Yangi Parol * (kamida 6 ta belgi)
+            </label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              placeholder="••••••••"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              className="w-full bg-zinc-800 text-zinc-100 text-xs rounded-xl px-3 py-2.5 border border-zinc-700 outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800 mt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsPasswordModalOpen(false)}
+            >
+              Bekor qilish
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isSavingCreds || !usernameInput.trim() || passwordInput.length < 6}
+            >
+              {isSavingCreds ? 'Saqlanmoqda...' : 'Saqlash'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </PageContainer>
   );
 };

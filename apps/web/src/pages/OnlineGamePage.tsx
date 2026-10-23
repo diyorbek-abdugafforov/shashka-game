@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { PlayerColor, GameResult, ResultReason } from '@shashka/shared-types';
 import type { Move as ValidatedMove } from '@shashka/game-engine';
@@ -10,6 +10,7 @@ import { TurnIndicator } from '../components/game/TurnIndicator';
 import { MoveHistory } from '../components/game/MoveHistory';
 import { GameControls } from '../components/game/GameControls';
 import { GameResultModal } from '../components/game/GameResult';
+import { InGameChat } from '../components/game/InGameChat';
 import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
 import { ErrorState } from '../components/ui/ErrorState';
@@ -17,11 +18,13 @@ import { useGameStore } from '../stores/game';
 import { useAuth } from '../hooks/useAuth';
 import { useSocketContext } from '../providers/SocketProvider';
 import { gamesApi } from '../api/games';
-import { WifiOff, AlertTriangle, Share2, Copy, Check, Users } from 'lucide-react';
+import { WifiOff, AlertTriangle, Share2, Copy, Check, Users, Eye, Handshake } from 'lucide-react';
 import { triggerHaptic } from '../utils/telegram';
 
 export const OnlineGamePage: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
+  const [searchParams] = useSearchParams();
+  const isSpectator = searchParams.get('spectate') === 'true';
   const navigate = useNavigate();
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
@@ -30,6 +33,7 @@ export const OnlineGamePage: React.FC = () => {
     socket,
     isConnected,
     joinGame,
+    spectateGame,
     sendMove,
     resignGame: socketResign,
     offerDraw: socketOfferDraw,
@@ -135,9 +139,13 @@ export const OnlineGamePage: React.FC = () => {
 
   useEffect(() => {
     if (gameId && isConnected) {
-      joinGame(gameId);
+      if (isSpectator) {
+        spectateGame(gameId);
+      } else {
+        joinGame(gameId);
+      }
     }
-  }, [gameId, isConnected, joinGame]);
+  }, [gameId, isConnected, isSpectator, joinGame, spectateGame]);
 
   useEffect(() => {
     return () => {
@@ -256,17 +264,36 @@ export const OnlineGamePage: React.FC = () => {
 
   const hasMandatoryCapture = legalMoves.some((m) => Boolean(m.captures && m.captures.length > 0));
   const drawOfferedByOpponent = Boolean(drawOfferedBy && drawOfferedBy !== myColor);
+  const drawOfferedByMe = Boolean(drawOfferedBy && drawOfferedBy === myColor);
+
+  const wonGame =
+    (myColor === PlayerColor.WHITE && gameResult === GameResult.WHITE_WON) ||
+    (myColor === PlayerColor.BLACK && gameResult === GameResult.BLACK_WON);
 
   return (
     <PageContainer
       headerProps={{
-        title: 'Onlayn bahs',
+        title: isSpectator ? "O'yinni kuzatish" : 'Onlayn bahs',
         showBack: true,
         onBack: () => navigate('/'),
+        rightAction: isSpectator ? (
+          <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold flex items-center gap-1 border border-amber-500/40">
+            <Eye className="w-3.5 h-3.5" />
+            <span>Kuzatuvchi</span>
+          </span>
+        ) : undefined,
       }}
       showBottomNav={false}
     >
       <div className="flex flex-col gap-3">
+        {/* Spectator Mode Banner */}
+        {isSpectator && (
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-950/70 border border-amber-800 text-amber-200 text-xs">
+            <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Siz ushbu o'yinni jonli kuzatyapsiz. Harakatlar avtomatik yangilanadi.</span>
+          </div>
+        )}
+
         {/* Opponent Disconnection Banner */}
         {isOpponentDisconnected && (
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-950/60 border border-amber-800 text-amber-300 text-xs animate-pulse">
@@ -275,8 +302,16 @@ export const OnlineGamePage: React.FC = () => {
           </div>
         )}
 
+        {/* My Draw Offer Pending Banner */}
+        {drawOfferedByMe && (
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-indigo-950/80 border border-indigo-700/70 text-indigo-200 text-xs animate-pulse">
+            <Handshake className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span>Durrang taklif qilindi. Raqibingiz javobi kutilmoqda...</span>
+          </div>
+        )}
+
         {/* Waiting for Friend / Opponent to Join */}
-        {(!blackPlayer?.id || initialGameData?.game?.status === 'WAITING_FOR_PLAYERS') && (
+        {!isSpectator && (!blackPlayer?.id || initialGameData?.game?.status === 'WAITING_FOR_PLAYERS') && (
           <Card className="p-3.5 bg-gradient-to-r from-indigo-950/80 via-zinc-900 to-zinc-900 border-indigo-700/60 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-indigo-300">
@@ -311,7 +346,7 @@ export const OnlineGamePage: React.FC = () => {
         {/* Turn Status Alert */}
         <TurnIndicator
           currentTurn={currentTurn}
-          hasMandatoryCapture={hasMandatoryCapture && isMyTurn}
+          hasMandatoryCapture={hasMandatoryCapture && isMyTurn && !isSpectator}
         />
 
         {/* Checkers Board */}
@@ -322,7 +357,7 @@ export const OnlineGamePage: React.FC = () => {
           selectedCoordinate={selectedCoordinate}
           lastMove={lastMove}
           orientation={orientation}
-          isInteractive={isMyTurn && !isGameOver}
+          isInteractive={!isSpectator && isMyTurn && !isGameOver}
           isSubmittingMove={isSubmittingMove}
           onSelectPiece={selectSquare}
           onMakeMove={handleMakeMove}
@@ -339,27 +374,36 @@ export const OnlineGamePage: React.FC = () => {
           isOnline={true}
         />
 
+        {/* In-Game Chat for both players */}
+        {gameId && (
+          <div className="flex items-center justify-between py-1">
+            <InGameChat gameId={gameId} />
+          </div>
+        )}
+
         {/* Move History */}
         <MoveHistory moves={moveHistory} />
 
         {/* Controls */}
-        <GameControls
-          isOnline={true}
-          onResign={handleResign}
-          onOfferDraw={handleOfferDraw}
-          drawOfferedByOpponent={drawOfferedByOpponent}
-          onAcceptDraw={handleAcceptDraw}
-          onDeclineDraw={handleDeclineDraw}
-        />
+        {!isSpectator && (
+          <GameControls
+            isOnline={true}
+            onResign={handleResign}
+            onOfferDraw={handleOfferDraw}
+            drawOfferedByOpponent={drawOfferedByOpponent}
+            onAcceptDraw={handleAcceptDraw}
+            onDeclineDraw={handleDeclineDraw}
+          />
+        )}
       </div>
 
       {/* Game Result Modal */}
       <GameResultModal
-        isOpen={isGameOver}
+        isOpen={isGameOver && !isSpectator}
         result={gameResult}
         reason={resultReason}
         myColor={myColor}
-        ratingChange={gameResult === GameResult.DRAW ? 0 : gameResult === GameResult.WHITE_WON ? (myColor === PlayerColor.WHITE ? 16 : -14) : (myColor === PlayerColor.BLACK ? 16 : -14)}
+        ratingChange={wonGame ? 16 : 0}
         onReviewGame={() => gameId && navigate(`/games/${gameId}`)}
         onPlayAgain={() => navigate('/modes')}
         onExit={() => navigate('/')}

@@ -193,6 +193,9 @@ export class UserService {
         bannedUntil: null,
         banReason: null,
         rating: 1200,
+        passwordHash: null,
+        equippedBoard: null,
+        equippedPieces: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         telegramAccount: {

@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { gameListQuerySchema, timeControlSchema } from '@shashka/validation';
 import type { ApiResponse } from '@shashka/shared-types';
+import { prisma } from '@shashka/database';
 import { GameService } from '../services/game.service.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
@@ -51,7 +52,7 @@ export const gameRoutes: FastifyPluginAsync = async (fastify) => {
       const authUser = req.user!;
       const body = (req.body as any) || {};
       const mode = body.mode || 'CLASSIC';
-      const timeControl = body.timeControl || { initialSeconds: 180, incrementSeconds: 2 };
+      const timeControl = body.timeControl || { initialSeconds: 90, incrementSeconds: 2 };
 
       const game = await GameService.createInviteGame(authUser.id, mode, timeControl);
 
@@ -223,6 +224,107 @@ export const gameRoutes: FastifyPluginAsync = async (fastify) => {
     };
 
     return reply.send(response);
+  });
+
+  // GET /api/games/featured-weekly
+  fastify.get('/featured-weekly', async (_req, reply) => {
+    try {
+      const games = await prisma.game.findMany({
+        where: {
+          status: 'FINISHED',
+        },
+        orderBy: [
+          { startedAt: 'desc' },
+        ],
+        take: 20,
+        include: {
+          whitePlayer: {
+            select: { id: true, displayName: true, username: true, avatarUrl: true, rating: true },
+          },
+          blackPlayer: {
+            select: { id: true, displayName: true, username: true, avatarUrl: true, rating: true },
+          },
+        },
+      });
+
+      // Fetch reviews/ratings for these games
+      const gameIds = games.map((g: any) => g.id);
+      const reviews = await prisma.gameReview.findMany({
+        where: { gameId: { in: gameIds } },
+      });
+
+      const enriched = games.map((g: any) => {
+        const gameReviews = reviews.filter((r: any) => r.gameId === g.id);
+        const avgRating = gameReviews.length
+          ? Number((gameReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / gameReviews.length).toFixed(1))
+          : 5.0;
+
+        return {
+          id: g.id,
+          mode: g.mode,
+          result: g.result,
+          resultReason: g.resultReason,
+          moveCount: g.moveCount,
+          startedAt: g.startedAt,
+          finishedAt: g.finishedAt,
+          whitePlayer: g.whitePlayer,
+          blackPlayer: g.blackPlayer,
+          rating: avgRating,
+          reviewCount: gameReviews.length,
+          badge: g.moveCount < 20 ? "Tezkor mot" : g.moveCount > 40 ? "Shiddatli jang" : "Oltin partiya",
+        };
+      });
+
+      return reply.send({
+        success: true,
+        data: enriched,
+      });
+    } catch (err: any) {
+      return reply.send({
+        success: true,
+        data: [],
+      });
+    }
+  });
+
+  // POST /api/games/:id/rate
+  fastify.post('/:id/rate', { preHandler: [authenticate] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const authUser = req.user!;
+    const body = (req.body as any) || {};
+    const stars = Math.min(5, Math.max(1, parseInt(body.stars || body.rating || 5, 10)));
+    const comment = body.comment || null;
+
+    try {
+      const review = await prisma.gameReview.upsert({
+        where: {
+          gameId_userId: {
+            gameId: id,
+            userId: authUser.id,
+          },
+        },
+        update: {
+          rating: stars,
+          comment,
+        },
+        create: {
+          gameId: id,
+          userId: authUser.id,
+          rating: stars,
+          comment,
+        },
+      });
+
+      return reply.send({
+        success: true,
+        data: review,
+      });
+    } catch (err: any) {
+      return reply.status(400).send({
+        success: false,
+        error: { message: err.message || 'Baholashda xatolik yuz berdi' },
+      });
+    }
   });
 };
 

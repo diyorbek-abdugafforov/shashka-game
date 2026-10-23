@@ -228,8 +228,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   myColor: null,
   whitePlayer: null,
   blackPlayer: null,
-  whiteTimeLeftMs: 180000,
-  blackTimeLeftMs: 180000,
+  whiteTimeLeftMs: 90000,
+  blackTimeLeftMs: 90000,
   drawOfferedBy: null,
   isOpponentDisconnected: false,
 
@@ -248,8 +248,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       gameResult: null,
       resultReason: null,
       isSubmittingMove: false,
-      whiteTimeLeftMs: 180000,
-      blackTimeLeftMs: 180000,
+      whiteTimeLeftMs: 90000,
+      blackTimeLeftMs: 90000,
     });
   },
 
@@ -270,8 +270,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       resultReason: null,
       isBotThinking: false,
       isSubmittingMove: false,
-      whiteTimeLeftMs: 180000,
-      blackTimeLeftMs: 180000,
+      whiteTimeLeftMs: 90000,
+      blackTimeLeftMs: 90000,
     });
   },
 

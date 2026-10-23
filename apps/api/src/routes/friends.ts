@@ -1,12 +1,13 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { ApiResponse } from '@shashka/shared-types';
+import { prisma } from '@shashka/database';
 import { FriendService } from '../services/friend.service.js';
 import { authenticate } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 
 const addFriendSchema = z.object({
-  friendId: z.string().uuid(),
+  friendId: z.string().min(1),
 });
 
 export const friendRoutes: FastifyPluginAsync = async (fastify) => {
@@ -41,6 +42,19 @@ export const friendRoutes: FastifyPluginAsync = async (fastify) => {
 
       const added = await FriendService.addFriend(authUser.id, friendId);
 
+      // Create persistent notification
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: friendId,
+            title: "Yangi do'st! 🤝",
+            message: `${authUser.displayName} sizni do'stlar safiga qo'shdi!`,
+            type: 'FRIEND_ADDED',
+            data: { fromUserId: authUser.id },
+          },
+        });
+      } catch {}
+
       // Notify target user via socket if online
       if (fastify.io) {
         fastify.io.to(`user:${friendId}`).emit('friend:added', {
@@ -49,6 +63,11 @@ export const friendRoutes: FastifyPluginAsync = async (fastify) => {
             displayName: authUser.displayName,
             avatarUrl: authUser.avatarUrl,
           },
+        });
+        fastify.io.to(`user:${friendId}`).emit('notification:received', {
+          title: "Yangi do'st! 🤝",
+          message: `${authUser.displayName} sizni do'stlar safiga qo'shdi!`,
+          type: 'FRIEND_ADDED',
         });
       }
 

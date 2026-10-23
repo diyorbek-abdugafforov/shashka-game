@@ -71,6 +71,8 @@ interface SocketContextValue {
   offerDraw: (gameId: string) => void;
   acceptDraw: (gameId: string) => void;
   declineDraw: (gameId: string) => void;
+  spectateGame: (gameId: string) => void;
+  sendChatMessage: (gameId: string, message: string, isSticker?: boolean) => void;
 }
 
 const SocketContext = createContext<SocketContextValue>({
@@ -96,6 +98,8 @@ const SocketContext = createContext<SocketContextValue>({
   offerDraw: () => {},
   acceptDraw: () => {},
   declineDraw: () => {},
+  spectateGame: () => {},
+  sendChatMessage: () => {},
 });
 
 const SOCKET_URL =
@@ -218,9 +222,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               currentTurn: PlayerColor.WHITE,
               whitePlayerId: isWhite ? currentUser?.id || 'player-white' : payload.opponent?.id,
               blackPlayerId: isWhite ? payload.opponent?.id : currentUser?.id || 'player-black',
-              timeControl: { initialSeconds: 180, incrementSeconds: 2 },
-              whiteTimeLeftMs: 180000,
-              blackTimeLeftMs: 180000,
+              timeControl: { initialSeconds: 90, incrementSeconds: 2 },
+              whiteTimeLeftMs: 90000,
+              blackTimeLeftMs: 90000,
               startedAt: new Date().toISOString(),
               moveCount: 0,
             } as any,
@@ -473,6 +477,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  const spectateGame = useCallback((gameId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('game:spectate', { gameId });
+    }
+  }, []);
+
+  const sendChatMessage = useCallback((gameId: string, message: string, isSticker = false) => {
+    if (socketRef.current) {
+      socketRef.current.emit('chat:message', { gameId, message, isSticker });
+    }
+  }, []);
+
   return (
     <SocketContext.Provider
       value={{
@@ -498,6 +514,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         offerDraw,
         acceptDraw,
         declineDraw,
+        spectateGame,
+        sendChatMessage,
       }}
     >
       {children}

@@ -3,6 +3,7 @@ import { PlayerColor, PieceType } from '@shashka/shared-types';
 import { motion } from 'framer-motion';
 import { Crown } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { useSettingsStore, type PieceSkinId } from '../../stores/settings';
 
 export interface PieceProps {
   color: PlayerColor | string;
@@ -10,6 +11,7 @@ export interface PieceProps {
   isSelected?: boolean;
   isMandatoryCapture?: boolean;
   animated?: boolean;
+  skin?: PieceSkinId;
   className?: string;
   onClick?: () => void;
 }
@@ -20,13 +22,88 @@ export const Piece: React.FC<PieceProps> = ({
   isSelected = false,
   isMandatoryCapture = false,
   animated = true,
+  skin: propSkin,
   className,
   onClick,
 }) => {
+  const settingsSkin = useSettingsStore((s) => s.pieceSkin);
+  const skin = propSkin || settingsSkin || 'classic';
+
   const isWhite =
     color === PlayerColor.WHITE ||
     (typeof color === 'string' && color.toUpperCase() === 'WHITE');
   const isKing = type === PieceType.KING;
+
+  // High contrast 3D styling based on skin
+  const getSkinStyles = () => {
+    switch (skin) {
+      case 'piece-gold-marble':
+        return isWhite
+          ? {
+              outer: 'bg-gradient-to-b from-amber-50 via-amber-100 to-amber-200 border-amber-300 ring-2 ring-amber-400/50 text-amber-900 shadow-md',
+              mid: 'border-amber-300/90 bg-amber-100/70',
+              inner: 'border-amber-400/80 bg-amber-50/90',
+              crown: 'text-amber-600 fill-amber-500',
+            }
+          : {
+              outer: 'bg-gradient-to-b from-amber-700 via-amber-900 to-stone-950 border-amber-500 ring-2 ring-amber-400/60 text-amber-200 shadow-md',
+              mid: 'border-amber-500/80 bg-amber-950/70',
+              inner: 'border-amber-400/70 bg-stone-900/90',
+              crown: 'text-amber-300 fill-amber-400',
+            };
+
+      case 'piece-obsidian':
+        return isWhite
+          ? {
+              outer: 'bg-gradient-to-b from-sky-50 via-slate-100 to-slate-200 border-sky-300 ring-2 ring-sky-400/40 text-slate-800 shadow-md',
+              mid: 'border-sky-200/90 bg-slate-100/80',
+              inner: 'border-sky-300/70 bg-white',
+              crown: 'text-sky-600 fill-sky-500',
+            }
+          : {
+              outer: 'bg-gradient-to-b from-slate-900 via-black to-zinc-950 border-cyan-400 ring-2 ring-cyan-500/50 text-cyan-300 shadow-md',
+              mid: 'border-cyan-500/60 bg-slate-950/90',
+              inner: 'border-cyan-400/50 bg-black',
+              crown: 'text-cyan-300 fill-cyan-400',
+            };
+
+      case 'piece-neon':
+        return isWhite
+          ? {
+              outer: 'bg-gradient-to-b from-cyan-300 via-cyan-400 to-teal-500 border-cyan-200 ring-2 ring-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.6)] text-slate-950',
+              mid: 'border-cyan-100/90 bg-cyan-200/80',
+              inner: 'border-cyan-200/80 bg-white/90',
+              crown: 'text-teal-900 fill-teal-800',
+            }
+          : {
+              outer: 'bg-gradient-to-b from-fuchsia-600 via-pink-700 to-rose-900 border-pink-400 ring-2 ring-fuchsia-400 shadow-[0_0_12px_rgba(236,72,153,0.6)] text-pink-100',
+              mid: 'border-pink-300/80 bg-pink-950/80',
+              inner: 'border-pink-400/60 bg-zinc-950/90',
+              crown: 'text-amber-300 fill-amber-400',
+            };
+
+      case 'classic':
+      default:
+        // Classic High-Contrast:
+        // White: Glowing Ivory Pearl with Polished Gold Rim
+        // Dark: Deep Imperial Ruby Crimson with Rich Gold/Bronze Rim (Strikingly distinct against dark squares!)
+        return isWhite
+          ? {
+              outer: 'bg-gradient-to-b from-white via-amber-50/90 to-amber-200/80 border-amber-300/90 ring-2 ring-amber-400/40 text-stone-850 shadow-md',
+              mid: 'border-amber-200/90 bg-amber-50/70',
+              inner: 'border-amber-300/70 bg-white/90',
+              crown: 'text-amber-600 fill-amber-500',
+            }
+          : {
+              outer: 'bg-gradient-to-b from-rose-600 via-rose-800 to-rose-950 border-amber-500/80 ring-2 ring-amber-500/40 text-amber-200 shadow-md',
+              mid: 'border-rose-500/70 bg-rose-950/80',
+              inner: 'border-amber-500/60 bg-red-950/90',
+              crown: 'text-amber-300 fill-amber-400',
+            };
+    }
+  };
+
+  const style = getSkinStyles();
 
   const content = (
     <div
@@ -41,42 +118,30 @@ export const Piece: React.FC<PieceProps> = ({
       {/* 3D Piece Shell */}
       <div
         className={cn(
-          'w-[84%] h-[84%] rounded-full flex items-center justify-center shadow-piece border relative transition-all duration-200',
-          isWhite
-            ? 'bg-gradient-to-b from-stone-100 via-stone-200 to-stone-400 border-stone-300 text-stone-800'
-            : 'bg-gradient-to-b from-zinc-700 via-zinc-850 to-zinc-950 border-zinc-700 text-amber-400',
-          isSelected &&
-            (isWhite
-              ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-zinc-900'
-              : 'ring-4 ring-amber-400 ring-offset-2 ring-offset-zinc-900'),
-          isMandatoryCapture && !isSelected && 'ring-2 ring-rose-500/80',
+          'w-[86%] h-[86%] rounded-full flex items-center justify-center shadow-lg border relative transition-all duration-200',
+          style.outer,
+          isSelected && 'ring-4 ring-amber-400 ring-offset-2 ring-offset-zinc-950 scale-105',
+          isMandatoryCapture && !isSelected && 'ring-3 ring-rose-500',
         )}
       >
         {/* Inner concentric ring indent */}
         <div
           className={cn(
-            'w-[74%] h-[74%] rounded-full border flex items-center justify-center',
-            isWhite
-              ? 'border-stone-300/80 bg-stone-200/50'
-              : 'border-zinc-700/80 bg-zinc-900/50',
+            'w-[74%] h-[74%] rounded-full border flex items-center justify-center transition-all',
+            style.mid,
           )}
         >
           {/* Inner groove */}
           <div
             className={cn(
-              'w-[58%] h-[58%] rounded-full border flex items-center justify-center',
-              isWhite
-                ? 'border-stone-400/60 bg-stone-100/40'
-                : 'border-zinc-600/60 bg-zinc-800/40',
+              'w-[58%] h-[58%] rounded-full border flex items-center justify-center transition-all shadow-inner',
+              style.inner,
             )}
           >
             {/* King / Damka Crown Emblem */}
             {isKing && (
               <Crown
-                className={cn(
-                  'w-[70%] h-[70%] drop-shadow-sm',
-                  isWhite ? 'text-amber-600 fill-amber-500/80' : 'text-amber-400 fill-amber-400/90',
-                )}
+                className={cn('w-[72%] h-[72%] drop-shadow-md', style.crown)}
               />
             )}
           </div>

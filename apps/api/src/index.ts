@@ -20,6 +20,8 @@ import { leaderboardRoutes } from './routes/leaderboard.js';
 import { shopRoutes } from './routes/shop.js';
 import { adminRoutes } from './routes/admin.js';
 import { friendRoutes } from './routes/friends.js';
+import { tournamentRoutes } from './routes/tournaments.js';
+import { notificationRoutes } from './routes/notifications.js';
 
 let redisClient: Redis | null = null;
 let gameEventQueue: Queue | null = null;
@@ -194,6 +196,8 @@ async function bootstrap() {
   await server.register(shopRoutes, { prefix: '/api/shop' });
   await server.register(adminRoutes, { prefix: '/api/admin' });
   await server.register(friendRoutes, { prefix: '/api/friends' });
+  await server.register(tournamentRoutes, { prefix: '/api/tournaments' });
+  await server.register(notificationRoutes, { prefix: '/api/notifications' });
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

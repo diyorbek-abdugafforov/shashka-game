@@ -55,35 +55,31 @@ export class RatingService {
     const expectedWhite = 1 / (1 + Math.pow(10, (blackRating - whiteRating) / 400));
     const expectedBlack = 1 - expectedWhite;
 
-    let actualWhite = 0.5;
-    let actualBlack = 0.5;
-    if (result === GameResult.WHITE_WON) {
-      actualWhite = 1;
-      actualBlack = 0;
-    } else if (result === GameResult.BLACK_WON) {
-      actualWhite = 0;
-      actualBlack = 1;
-    }
-
     const K = 32;
 
-    let whiteChange = Math.round(K * (actualWhite - expectedWhite));
-    let blackChange = Math.round(K * (actualBlack - expectedBlack));
+    let whiteChange = 0;
+    let blackChange = 0;
 
-    // Guarantee minimum win gain (+15) and loss deduction (-10)
-    if (actualWhite === 1 && whiteChange < 15) whiteChange = 15;
-    if (actualBlack === 1 && blackChange < 15) blackChange = 15;
+    if (result === GameResult.WHITE_WON) {
+      // White won: White gets +16 to +32 points based on opponent rating
+      whiteChange = Math.max(15, Math.round(K * (1 - expectedWhite)));
+      blackChange = 0; // Durang va yutqazsa ball berilmaydi
+    } else if (result === GameResult.BLACK_WON) {
+      // Black won: Black gets +16 to +32 points based on opponent rating
+      blackChange = Math.max(15, Math.round(K * (1 - expectedBlack)));
+      whiteChange = 0; // Durang va yutqazsa ball berilmaydi
+    } else {
+      // Draw (Durang): hech kimga ball berilmaydi
+      whiteChange = 0;
+      blackChange = 0;
+    }
 
-    if (actualWhite === 0 && whiteChange > -10) whiteChange = -10;
-    if (actualBlack === 0 && blackChange > -10) blackChange = -10;
-
-    // When starting at 0 or low rating, ratings cannot go below 0
     const newWhiteRating = Math.max(0, whiteRating + whiteChange);
     const newBlackRating = Math.max(0, blackRating + blackChange);
 
     return {
-      white: { newRating: newWhiteRating, change: newWhiteRating - whiteRating },
-      black: { newRating: newBlackRating, change: newBlackRating - blackRating },
+      white: { newRating: newWhiteRating, change: whiteChange },
+      black: { newRating: newBlackRating, change: blackChange },
     };
   }
 
@@ -149,7 +145,7 @@ export class RatingService {
         (!humanIsWhite && game.result === GameResult.BLACK_WON);
       const isDraw = game.result === GameResult.DRAW;
 
-      const change = isDraw ? 0 : humanWon ? 15 : -10;
+      const change = isDraw ? 0 : humanWon ? 15 : 0;
       const newRating = Math.max(0, Math.round(humanUser.rating + change));
 
       await prisma.$transaction(async (tx) => {

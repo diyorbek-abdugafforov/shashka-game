@@ -33,6 +33,9 @@ import { cn } from '../utils/cn';
 import { useSocketContext } from '../providers/SocketProvider';
 import { friendsApi, type FriendModel } from '../api/friends';
 import { UserProfileModal, type UserProfileTarget } from '../components/common/UserProfileModal';
+import { NotificationCenter } from '../components/common/NotificationCenter';
+import { WeeklyBestGamesModal } from '../components/common/WeeklyBestGamesModal';
+import { Eye } from 'lucide-react';
 
 interface OnlinePlayer {
   id: string;
@@ -42,6 +45,8 @@ interface OnlinePlayer {
   stars?: number;
   avatarUrl?: string | null;
   isPremium?: boolean;
+  status: 'in_game' | 'online' | 'offline';
+  currentGameId?: string | null;
 }
 
 export const HomePage: React.FC = () => {
@@ -52,6 +57,7 @@ export const HomePage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'all' | 'friends'>('all');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [showWeeklyGamesModal, setShowWeeklyGamesModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{ sender: string; text: string; time: string }>>([
@@ -73,10 +79,10 @@ export const HomePage: React.FC = () => {
     staleTime: 60000,
   });
 
-  // Query online users from API as well for initial instant load
-  const { data: apiOnlineUsers, isLoading: isPlayersLoading } = useQuery({
-    queryKey: ['home-online-players'],
-    queryFn: () => usersApi.getOnlineUsers(),
+  // Query all players from platform (sorted by in_game -> online -> offline)
+  const { data: allPlayersData, isLoading: isPlayersLoading } = useQuery({
+    queryKey: ['all-players-platform'],
+    queryFn: () => usersApi.getAllPlayers(),
     refetchInterval: 5000,
   });
 
@@ -99,35 +105,46 @@ export const HomePage: React.FC = () => {
   const currentRating = stats?.currentRating ?? (user ? (user as any).rating ?? 0 : 0);
   const userDiamonds = wallet?.balance ?? 100;
 
-  // Real-time active users who currently have the web app open right now!
+  // Real-time active users who currently have the web app open or registered
   const onlinePlayers: OnlinePlayer[] = React.useMemo(() => {
-    const map = new Map<string, any>();
-    if (Array.isArray(apiOnlineUsers)) {
-      apiOnlineUsers.forEach((u: any) => {
-        if (u && u.id) map.set(u.id, u);
-      });
-    }
+    const list: any[] = Array.isArray(allPlayersData) ? allPlayersData : [];
+    const socketMap = new Map<string, any>();
     if (Array.isArray(onlineUsers)) {
       onlineUsers.forEach((u) => {
-        if (u && u.id) map.set(u.id, u);
+        if (u && u.id) socketMap.set(u.id, u);
       });
     }
-    return Array.from(map.values())
-      .filter((entry) => entry.id !== user?.id)
-      .map((entry) => ({
-        id: entry.id,
-        name: entry.displayName || 'O\'yinchi',
-        elo: entry.rating ?? 0,
-        diamonds: 100,
-        stars: Math.max(1, Math.floor((entry.rating ?? 0) / 100)),
-        avatarUrl: entry.avatarUrl,
-        isPremium: (entry.rating ?? 0) >= 500,
-      }));
-  }, [onlineUsers, apiOnlineUsers, user?.id]);
+
+    const merged = list
+      .filter((p) => p && p.id !== user?.id)
+      .map((p) => {
+        const sock = socketMap.get(p.id);
+        const status = (sock?.status || p.status || (sock ? 'online' : 'offline')) as 'in_game' | 'online' | 'offline';
+        const currentGameId = sock?.currentGameId || p.currentGameId || null;
+        return {
+          id: p.id,
+          name: p.displayName || 'O\'yinchi',
+          elo: p.rating ?? 0,
+          diamonds: p.diamonds ?? 100,
+          stars: Math.max(1, Math.floor((p.rating ?? 0) / 100)),
+          avatarUrl: p.avatarUrl,
+          isPremium: (p.rating ?? 0) >= 500,
+          status,
+          currentGameId,
+        };
+      });
+
+    return merged.sort((a, b) => {
+      const rank = (s: string) => (s === 'in_game' ? 0 : s === 'online' ? 1 : 2);
+      const diff = rank(a.status) - rank(b.status);
+      if (diff !== 0) return diff;
+      return (b.elo || 0) - (a.elo || 0);
+    });
+  }, [allPlayersData, onlineUsers, user?.id]);
 
   const topMarqueeUser = leaderboardData?.topPlayers?.[0];
 
-  const handleChallenge = (player: OnlinePlayer) => {
+  const handleChallenge = (player: { id: string; name: string; [key: string]: any }) => {
     triggerHaptic('medium');
     sendChallenge(player.id, player.name);
   };
@@ -151,6 +168,7 @@ export const HomePage: React.FC = () => {
       headerProps={{
         title: 'Shashka Online',
         showBalance: true,
+        rightAction: <NotificationCenter />,
       }}
     >
       <div className="flex flex-col gap-3.5 pb-6">
@@ -197,7 +215,7 @@ export const HomePage: React.FC = () => {
           <div
             onClick={() => {
               triggerHaptic('light');
-              navigate('/history');
+              setShowWeeklyGamesModal(true);
             }}
             className="p-3.5 rounded-2xl bg-gradient-to-br from-[#4338ca] via-[#6366f1] to-[#3b0764] shadow-lg shadow-indigo-950/30 text-white cursor-pointer active:scale-[0.98] transition-transform relative overflow-hidden flex flex-col justify-between min-h-[110px]"
           >
@@ -520,84 +538,155 @@ export const HomePage: React.FC = () => {
               </div>
             )}
 
-            {/* REAL ACTIVE ONLINE PLAYERS LIST ONLY */}
-            {onlinePlayers.map((player) => (
-              <div
-                key={player.id}
-                className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors"
-              >
-                <div
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setSelectedProfileUser({
-                      id: player.id,
-                      name: player.name,
-                      elo: player.elo,
-                      diamonds: player.diamonds,
-                      avatarUrl: player.avatarUrl,
-                      isOnline: true,
-                    });
-                  }}
-                  className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
-                >
-                  <div className="relative">
-                    {player.avatarUrl ? (
-                      <img
-                        src={player.avatarUrl}
-                        alt={player.name}
-                        className="w-11 h-11 rounded-full object-cover ring-2 ring-emerald-500/40"
-                      />
-                    ) : (
-                      <div className="w-11 h-11 rounded-full bg-blue-800 text-white flex items-center justify-center font-bold text-base ring-2 ring-emerald-500/40">
-                        {player.name.slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-zinc-900 flex items-center justify-center" title="Onlayn">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    </span>
-                    {player.isPremium && (
-                      <span className="absolute -top-1 -right-1 px-1 py-0.2 rounded-md bg-amber-500 text-black font-black text-[7px] uppercase tracking-tighter">
-                        PRO
-                      </span>
-                    )}
-                  </div>
+            {/* REAL ACTIVE PLAYERS LIST: IN_GAME -> ONLINE -> OFFLINE */}
+            {onlinePlayers.map((player) => {
+              const isInGame = player.status === 'in_game' || Boolean(player.currentGameId);
+              const isOnline = player.status === 'online' || isInGame;
 
-                  <div>
-                    <h4 className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
-                      <span>{player.name}</span>
-                      <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[8px]">
-                        Onlayn
+              return (
+                <div
+                  key={player.id}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors"
+                >
+                  <div
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setSelectedProfileUser({
+                        id: player.id,
+                        name: player.name,
+                        elo: player.elo,
+                        diamonds: player.diamonds,
+                        avatarUrl: player.avatarUrl,
+                        isOnline,
+                        status: player.status,
+                        currentGameId: player.currentGameId,
+                      });
+                    }}
+                    className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                  >
+                    <div className="relative">
+                      {player.avatarUrl ? (
+                        <img
+                          src={player.avatarUrl}
+                          alt={player.name}
+                          className={cn(
+                            'w-11 h-11 rounded-full object-cover ring-2',
+                            isInGame
+                              ? 'ring-amber-400'
+                              : isOnline
+                                ? 'ring-emerald-500/40'
+                                : 'ring-zinc-700',
+                          )}
+                        />
+                      ) : (
+                        <div
+                          className={cn(
+                            'w-11 h-11 rounded-full text-white flex items-center justify-center font-bold text-base ring-2',
+                            isInGame
+                              ? 'bg-amber-700 ring-amber-400'
+                              : isOnline
+                                ? 'bg-blue-800 ring-emerald-500/40'
+                                : 'bg-zinc-800 ring-zinc-700 text-zinc-400',
+                          )}
+                        >
+                          {player.name.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <span
+                        className={cn(
+                          'absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-zinc-900 flex items-center justify-center',
+                          isInGame ? 'bg-amber-400' : isOnline ? 'bg-emerald-500' : 'bg-zinc-600',
+                        )}
+                        title={isInGame ? "O'yinda" : isOnline ? 'Onlayn' : 'Oflayn'}
+                      >
+                        {(isInGame || isOnline) && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        )}
                       </span>
-                    </h4>
-                    <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
-                      <span className="font-semibold text-zinc-300">ELO {player.elo}</span>
-                      <span>|</span>
-                      <span className="flex items-center gap-1 text-sky-400 font-semibold">
-                        <Gem className="w-3 h-3 text-sky-400" />
-                        {player.diamonds}
-                      </span>
-                      {player.stars && (
-                        <>
-                          <span>|</span>
-                          <span className="flex items-center gap-0.5 text-amber-400 font-bold">
-                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                            {player.stars}
-                          </span>
-                        </>
+                      {player.isPremium && (
+                        <span className="absolute -top-1 -right-1 px-1 py-0.2 rounded-md bg-amber-500 text-black font-black text-[7px] uppercase tracking-tighter">
+                          PRO
+                        </span>
                       )}
                     </div>
-                  </div>
-                </div>
 
-                <button
-                  onClick={() => handleChallenge(player)}
-                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 hover:from-indigo-500 hover:to-rose-500 active:scale-95 text-white font-bold text-[11px] transition-all shadow-md shadow-indigo-950/40 shrink-0 flex items-center gap-1"
-                >
-                  <Swords className="w-3 h-3" />
-                  <span>{language === 'ru' ? 'Вызов' : language === 'en' ? 'Challenge' : "O'yinga taklif"}</span>
-                </button>
-              </div>
-            ))}
+                    <div>
+                      <h4 className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
+                        <span>{player.name}</span>
+                        <span
+                          className={cn(
+                            'px-1.5 py-0.2 rounded-full font-bold text-[8px]',
+                            isInGame
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : isOnline
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : 'bg-zinc-800 text-zinc-400',
+                          )}
+                        >
+                          {isInGame ? "O'yinda" : isOnline ? 'Onlayn' : 'Oflayn'}
+                        </span>
+                      </h4>
+                      <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
+                        <span className="font-semibold text-zinc-300">ELO {player.elo}</span>
+                        <span>|</span>
+                        <span className="flex items-center gap-1 text-sky-400 font-semibold">
+                          <Gem className="w-3 h-3 text-sky-400" />
+                          {player.diamonds}
+                        </span>
+                        {player.stars && (
+                          <>
+                            <span>|</span>
+                            <span className="flex items-center gap-0.5 text-amber-400 font-bold">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              {player.stars}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {isInGame && player.currentGameId ? (
+                    <button
+                      onClick={() => {
+                        triggerHaptic('medium');
+                        navigate(`/game/online/${player.currentGameId}?spectate=true`);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-zinc-950 font-black text-[11px] transition-all shadow-md shadow-amber-950/40 shrink-0 flex items-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-zinc-950" />
+                      <span>Kuzatish</span>
+                    </button>
+                  ) : isOnline ? (
+                    <button
+                      onClick={() => handleChallenge(player)}
+                      className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-rose-600 hover:from-indigo-500 hover:to-rose-500 active:scale-95 text-white font-bold text-[11px] transition-all shadow-md shadow-indigo-950/40 shrink-0 flex items-center gap-1"
+                    >
+                      <Swords className="w-3 h-3" />
+                      <span>{language === 'ru' ? 'Вызов' : language === 'en' ? 'Challenge' : "O'yinga taklif"}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        triggerHaptic('light');
+                        setSelectedProfileUser({
+                          id: player.id,
+                          name: player.name,
+                          elo: player.elo,
+                          diamonds: player.diamonds,
+                          avatarUrl: player.avatarUrl,
+                          isOnline: false,
+                          status: 'offline',
+                        });
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-750 text-zinc-400 text-[11px] font-semibold transition-all shrink-0"
+                    >
+                      Profil
+                    </button>
+                  )}
+                </div>
+              );
+            })}
 
             {/* Modern Bottom Invite Card */}
             <div
@@ -699,6 +788,12 @@ export const HomePage: React.FC = () => {
         onClose={() => setSelectedProfileUser(null)}
         targetUser={selectedProfileUser}
         onChallenge={(id, name) => sendChallenge(id, name)}
+      />
+
+      {/* Weekly Best Games Modal */}
+      <WeeklyBestGamesModal
+        isOpen={showWeeklyGamesModal}
+        onClose={() => setShowWeeklyGamesModal(false)}
       />
     </PageContainer>
   );

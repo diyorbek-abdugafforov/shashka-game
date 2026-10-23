@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { updateProfileSchema, gameListQuerySchema } from '@shashka/validation';
 import type { ApiResponse, UserStatsResponse } from '@shashka/shared-types';
+import { prisma } from '@shashka/database';
 import { UserService } from '../services/user.service.js';
 import { GameService } from '../services/game.service.js';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.js';
@@ -16,6 +17,67 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       success: true,
       data: Array.from(activeOnlineUsers.values()),
     });
+  });
+
+  // GET /api/users/all-players (All platform players with status: online, in_game, offline)
+  fastify.get('/all-players', async (_req, reply) => {
+    try {
+      const dbUsers = await prisma.user.findMany({
+        where: { isBanned: false },
+        select: {
+          id: true,
+          displayName: true,
+          username: true,
+          avatarUrl: true,
+          rating: true,
+          role: true,
+          createdAt: true,
+        },
+        orderBy: { rating: 'desc' },
+        take: 50,
+      });
+
+      const onlineMap = new Map<string, any>();
+      for (const onlineUser of activeOnlineUsers.values()) {
+        onlineMap.set(onlineUser.id, onlineUser);
+      }
+
+      const allPlayers = dbUsers.map((u: any) => {
+        const live = onlineMap.get(u.id);
+        const status = live ? (live.status || 'online') : 'offline';
+        const currentGameId = live?.currentGameId || null;
+
+        return {
+          id: u.id,
+          displayName: u.displayName,
+          username: u.username,
+          avatarUrl: u.avatarUrl,
+          rating: u.rating ?? 0,
+          role: u.role,
+          status, // 'in_game' | 'online' | 'offline'
+          currentGameId,
+          connectedAt: live?.connectedAt || null,
+        };
+      });
+
+      // Sort: in_game and online first, then offline
+      allPlayers.sort((a: any, b: any) => {
+        const priority = (s: string) => (s === 'in_game' ? 2 : s === 'online' ? 1 : 0);
+        const diff = priority(b.status) - priority(a.status);
+        if (diff !== 0) return diff;
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      });
+
+      return reply.send({
+        success: true,
+        data: allPlayers,
+      });
+    } catch (err: any) {
+      return reply.send({
+        success: true,
+        data: [],
+      });
+    }
   });
 
   // GET /api/users/me

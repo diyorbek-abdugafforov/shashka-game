@@ -9,6 +9,12 @@ export type BoardThemeId =
   | 'board-emerald-luxury'
   | 'board-midnight';
 
+export type PieceSkinId =
+  | 'classic'
+  | 'piece-gold-marble'
+  | 'piece-obsidian'
+  | 'piece-neon';
+
 interface SettingsState {
   soundEnabled: boolean;
   animationsEnabled: boolean;
@@ -16,6 +22,7 @@ interface SettingsState {
   hapticsEnabled: boolean;
   language: 'uz' | 'ru' | 'en';
   boardTheme: BoardThemeId;
+  pieceSkin: PieceSkinId;
 
   toggleSound: () => void;
   toggleAnimations: () => void;
@@ -23,6 +30,7 @@ interface SettingsState {
   toggleHaptics: () => void;
   setLanguage: (lang: 'uz' | 'ru' | 'en') => void;
   setBoardTheme: (theme: BoardThemeId) => void;
+  setPieceSkin: (skin: PieceSkinId) => void;
 }
 
 const STORAGE_KEY = 'shashka_settings_v1';
@@ -55,6 +63,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   hapticsEnabled: initial.hapticsEnabled ?? true,
   language: initial.language ?? 'uz',
   boardTheme: initial.boardTheme ?? 'classic',
+  pieceSkin: initial.pieceSkin ?? 'classic',
 
   toggleSound: () => {
     const next = !get().soundEnabled;
@@ -88,5 +97,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setBoardTheme: (boardTheme) => {
     set({ boardTheme });
     saveSettings({ ...get(), boardTheme });
+  },
+
+  setPieceSkin: (pieceSkin) => {
+    set({ pieceSkin });
+    saveSettings({ ...get(), pieceSkin });
   },
 }));

@@ -287,6 +287,155 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       data: { message: 'Logged out successfully' },
     });
   });
+
+  // POST /api/auth/set-credentials (set username & password for browser login)
+  fastify.post('/set-credentials', { preHandler: [authenticate] }, async (req, reply) => {
+    const authUser = req.user!;
+    const body = (req.body as any) || {};
+    const { username, password } = body;
+
+    if (!username || typeof username !== 'string' || username.trim().length < 3) {
+      return reply.status(400).send({
+        success: false,
+        error: { message: "Login kamida 3 ta belgidan iborat bo'lishi kerak" },
+      });
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 4) {
+      return reply.status(400).send({
+        success: false,
+        error: { message: "Parol kamida 4 ta belgidan iborat bo'lishi kerak" },
+      });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+
+    // Check if username taken by someone else
+    const existing = await prisma.user.findFirst({
+      where: {
+        username: cleanUsername,
+        id: { not: authUser.id },
+      },
+    });
+
+    if (existing) {
+      return reply.status(400).send({
+        success: false,
+        error: { message: "Ushbu login boshqa foydalanuvchi tomonidan band qilingan" },
+      });
+    }
+
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    const passwordHash = `${salt}:${hash}`;
+
+    const updated = await prisma.user.update({
+      where: { id: authUser.id },
+      data: {
+        username: cleanUsername,
+        passwordHash,
+      },
+    });
+
+    return reply.send({
+      success: true,
+      data: {
+        message: "Login va parol muvaffaqiyatli o'rnatildi! Endi brauzerdan ham ushbu login va parol orqali profilingizga kira olasiz.",
+        username: updated.username,
+      },
+    });
+  });
+
+  // POST /api/auth/login-credentials (login from web browser using login & password)
+  fastify.post('/login-credentials', async (req, reply) => {
+    const body = (req.body as any) || {};
+    const { username, password } = body;
+
+    if (!username || !password) {
+      return reply.status(400).send({
+        success: false,
+        error: { message: "Login va parolni kiriting" },
+      });
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+    const user = await prisma.user.findFirst({
+      where: { username: cleanUsername },
+      include: { telegramAccount: true, wallet: true },
+    });
+
+    if (!user || !user.passwordHash) {
+      return reply.status(401).send({
+        success: false,
+        error: { message: "Login yoki parol noto'g'ri, yoki hisobda parol o'rnatilmagan" },
+      });
+    }
+
+    const [salt, key] = user.passwordHash.split(':');
+    if (!salt || !key) {
+      return reply.status(401).send({
+        success: false,
+        error: { message: "Avtorizatsiyada xatolik yuz berdi" },
+      });
+    }
+
+    const testHash = crypto.scryptSync(password, salt, 64).toString('hex');
+    if (testHash !== key) {
+      return reply.status(401).send({
+        success: false,
+        error: { message: "Login yoki parol noto'g'ri" },
+      });
+    }
+
+    const authUser = {
+      id: user.id,
+      telegramId: user.telegramAccount?.telegramId,
+      username: user.username,
+      displayName: user.displayName,
+      role: user.role as any as UserRole,
+      isBanned: user.isBanned,
+      avatarUrl: user.avatarUrl,
+    };
+
+    const token = fastify.generateAccessToken(authUser);
+    const refreshToken = fastify.generateRefreshToken(authUser);
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    reply.setCookie('token', token, {
+      path: '/',
+      httpOnly: true,
+      secure: isProd(),
+      sameSite: 'none',
+      maxAge: 7 * 24 * 3600,
+    });
+
+    return reply.send({
+      success: true,
+      data: {
+        token,
+        refreshToken,
+        user: {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          rating: user.rating,
+          role: user.role,
+        },
+        wallet: user.wallet,
+      },
+    });
+  });
 };
 
 export default authRoutes;

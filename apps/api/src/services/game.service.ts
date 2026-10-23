@@ -169,7 +169,7 @@ export class GameService {
   public static async createInviteGame(
     userId: string,
     mode: GameMode = GameMode.CLASSIC,
-    timeControl = { initialSeconds: 180, incrementSeconds: 2 },
+    timeControl = { initialSeconds: 90, incrementSeconds: 2 },
   ) {
     const initialBoard = createInitialBoard();
 
@@ -226,7 +226,7 @@ export class GameService {
     whitePlayerId: string,
     blackPlayerId: string,
     mode: GameMode = GameMode.CLASSIC,
-    timeControl = { initialSeconds: 180, incrementSeconds: 2 },
+    timeControl = { initialSeconds: 90, incrementSeconds: 2 },
   ) {
     const initialBoard = createInitialBoard();
 
@@ -879,7 +879,7 @@ export class GameService {
     // Update user rating and history
     const userWon = params.result === GameResult.WHITE_WON;
     const isDraw = params.result === GameResult.DRAW;
-    const ratingChange = isDraw ? 0 : userWon ? 15 : -10;
+    const ratingChange = isDraw ? 0 : userWon ? 15 : 0;
     let newRating = 0;
 
     try {

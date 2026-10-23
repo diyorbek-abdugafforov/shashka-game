@@ -69,4 +69,19 @@ export const gamesApi = {
       body: JSON.stringify(data),
     });
   },
+
+  getFeaturedWeekly: async (): Promise<any[]> => {
+    return apiClient<any[]>('/games/featured-weekly');
+  },
+
+  rateGame: async (
+    gameId: string,
+    rating: number,
+    comment?: string,
+  ): Promise<{ success: boolean; data: any }> => {
+    return apiClient<{ success: boolean; data: any }>(`/games/${gameId}/rate`, {
+      method: 'POST',
+      body: JSON.stringify({ rating, comment }),
+    });
+  },
 };

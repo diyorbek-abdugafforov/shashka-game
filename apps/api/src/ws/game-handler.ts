@@ -1,3 +1,4 @@
+import prisma from '@shashka/database';
 import type { Server } from 'socket.io';
 import type { AuthenticatedSocket } from '../types.js';
 import {
@@ -12,6 +13,7 @@ import {
 } from '@shashka/shared-types';
 import { GameService } from '../services/game.service.js';
 import { MatchmakingService } from '../services/matchmaking.service.js';
+import { activeOnlineUsers } from '../plugins/socket.js';
 
 export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
   const user = socket.data.user;
@@ -25,6 +27,14 @@ export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
       // If invite game and second player arrives, join them as Black
       if (!game.blackPlayerId && game.whitePlayerId !== user.id) {
         game = await GameService.joinInviteGame(gameId, user.id);
+      }
+
+      // Mark this user as in_game
+      const currentOnline = activeOnlineUsers.get(user.id);
+      if (currentOnline) {
+        currentOnline.status = 'in_game';
+        currentOnline.currentGameId = gameId;
+        io.emit('users:online', Array.from(activeOnlineUsers.values()));
       }
 
       const moves = await GameService.getGameMoves(gameId);
@@ -48,8 +58,8 @@ export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
           ),
           startedAt: game.startedAt.toISOString(),
           finishedAt: game.finishedAt ? game.finishedAt.toISOString() : null,
-          whiteTimeLeftMs: 180000,
-          blackTimeLeftMs: 180000,
+          whiteTimeLeftMs: 90000,
+          blackTimeLeftMs: 90000,
         },
         moves: moves.map((m) => ({
           ...m,
@@ -152,6 +162,12 @@ export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
   socket.on(SocketEvents.GAME_RESIGN, async (payload: GameResignPayload) => {
     try {
       const finished = await GameService.handleResign(payload.gameId, user.id);
+
+      // Reset online status
+      const p1 = activeOnlineUsers.get(user.id);
+      if (p1) { p1.status = 'online'; p1.currentGameId = null; }
+      io.emit('users:online', Array.from(activeOnlineUsers.values()));
+
       io.to(`game:${payload.gameId}`).emit(SocketEvents.GAME_FINISHED, {
         gameId: payload.gameId,
         result: finished.result!,
@@ -167,11 +183,11 @@ export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
     }
   });
 
-  // Handle draw offer
+  // Handle draw offer (broadcast to ALL in room including sender so sender UI updates)
   socket.on(SocketEvents.GAME_DRAW_OFFER, async (payload: GameDrawOfferPayload) => {
     try {
       const { drawOfferedBy } = await GameService.handleDrawOffer(payload.gameId, user.id);
-      socket.to(`game:${payload.gameId}`).emit(SocketEvents.GAME_DRAW_OFFERED, {
+      io.to(`game:${payload.gameId}`).emit(SocketEvents.GAME_DRAW_OFFERED, {
         gameId: payload.gameId,
         offeredByColor: drawOfferedBy,
       });
@@ -187,6 +203,12 @@ export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
   socket.on(SocketEvents.GAME_DRAW_ACCEPT, async (payload: GameDrawAcceptPayload) => {
     try {
       const finished = await GameService.handleDrawAccept(payload.gameId, user.id);
+
+      // Reset in_game status
+      const p1 = activeOnlineUsers.get(user.id);
+      if (p1) { p1.status = 'online'; p1.currentGameId = null; }
+      io.emit('users:online', Array.from(activeOnlineUsers.values()));
+
       io.to(`game:${payload.gameId}`).emit(SocketEvents.GAME_FINISHED, {
         gameId: payload.gameId,
         result: finished.result!,
@@ -202,12 +224,48 @@ export function registerGameHandlers(io: Server, socket: AuthenticatedSocket) {
     }
   });
 
-  // Handle draw decline
+  // Handle draw decline (broadcast to ALL so both see it was declined)
   socket.on(SocketEvents.GAME_DRAW_DECLINE, (payload: GameDrawDeclinePayload) => {
-    socket.to(`game:${payload.gameId}`).emit(SocketEvents.GAME_DRAW_DECLINED, {
+    io.to(`game:${payload.gameId}`).emit(SocketEvents.GAME_DRAW_DECLINED, {
       gameId: payload.gameId,
       declinedByColor: PlayerColor.WHITE,
     });
+  });
+
+  // In-Game 1v1 Chat & Stickers (visible to both players and admin panel)
+  socket.on('chat:message', async (payload: { gameId: string; text?: string; sticker?: string }) => {
+    if (!payload.gameId) return;
+
+    const chatMsg = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      gameId: payload.gameId,
+      senderId: user.id,
+      senderName: user.displayName,
+      avatarUrl: user.avatarUrl || null,
+      text: payload.text || null,
+      sticker: payload.sticker || null,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 1. Deliver to game room (both players and live spectators)
+    io.to(`game:${payload.gameId}`).emit('chat:message', chatMsg);
+
+    // 2. Deliver to admin monitoring room
+    io.to('admin:moderation').emit('chat:admin_log', chatMsg);
+
+    // 3. Persist in database
+    try {
+      await prisma.chatMessage.create({
+        data: {
+          gameId: payload.gameId,
+          senderId: user.id,
+          senderName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          text: payload.text || null,
+          sticker: payload.sticker || null,
+        },
+      });
+    } catch {}
   });
 
   // Disconnection handler
